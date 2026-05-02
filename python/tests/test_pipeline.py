@@ -79,3 +79,28 @@ def test_cli_smoke(tmp_path):
     assert "nodeA\tnodeB" in text
     assert "W[3]" in text
 
+
+def test_cli_pathflow_smoke(tmp_path):
+    inp = tmp_path / "edges.tsv"
+    out = tmp_path / "out.tsv"
+    inp.write_text(
+        "node1\tnode2\tweight\nA\tB\t0.9\nB\tC\t0.9\nA\tC\t0.5\n",
+        encoding="utf-8",
+    )
+    code = main(
+        [
+            "--algorithm",
+            "pathflow",
+            "--interactions",
+            str(inp),
+            "-o",
+            str(out),
+            "--iterations",
+            "3",
+            "--device",
+            "cpu",
+        ]
+    )
+    assert code == 0
+    text = out.read_text(encoding="utf-8")
+    assert "W[3]" in text

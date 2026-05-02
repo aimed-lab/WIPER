@@ -11,7 +11,8 @@ from .core import (
     optimal_path_matrix,
 )
 from .io import build_adjacency, normalize_interactions, read_interactions, write_wiper_result
-from .pipeline import WiperResult, devices_report, run_wiper
+from .pathflow import path_usage_matrix, winner_restart_iteration
+from .pipeline import WiperResult, devices_report, run_path_wiper, run_wiper
 
 __version__ = "0.1.0"
 
@@ -27,9 +28,11 @@ __all__ = [
     "initial_edge_scores",
     "normalize_interactions",
     "optimal_path_matrix",
+    "path_usage_matrix",
     "read_interactions",
     "resolve_device",
+    "run_path_wiper",
     "run_wiper",
+    "winner_restart_iteration",
     "write_wiper_result",
 ]
-

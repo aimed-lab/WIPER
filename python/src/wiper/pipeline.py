@@ -20,6 +20,7 @@ from .core import (
     optimal_path_matrix,
 )
 from .io import build_adjacency, normalize_interactions
+from .pathflow import InitialScore, PairWeight, ShareMode, path_usage_matrix, winner_initial_score, winner_restart_iteration
 from .stats import competition_rank_desc, ranking_pvalues, significance_symbols, ufc_scores
 
 
@@ -217,8 +218,95 @@ def run_wiper(
     )
 
 
+def run_path_wiper(
+    interactions: pd.DataFrame,
+    *,
+    sigma: float = 0.85,
+    iterations: int = 200,
+    pair_weight: PairWeight = "uniform",
+    share_mode: ShareMode = "strength",
+    initial_score: InitialScore = "winner",
+    tie_tolerance: float = 1e-12,
+    max_paths_per_pair: int = 1024,
+    device: Device = "auto",
+) -> WiperResult:
+    """Run path-aware WIPER.
+
+    This variant ranks edges by actual all-pairs shortest-path usage before
+    applying WINNER-style restart propagation over an edge co-path graph.
+    """
+    edge_df = normalize_interactions(interactions)
+    if edge_df.empty:
+        empty = np.array([], dtype=np.float64)
+        return WiperResult(
+            node_a=[],
+            node_b=[],
+            degree=np.array([], dtype=np.int64),
+            w0=empty,
+            ufc0=empty,
+            log_ufc0=empty,
+            pvalue0=empty,
+            significance0=np.array([], dtype=object),
+            w_final=empty,
+            ufc_final=empty,
+            log_ufc_final=empty,
+            pvalue_final=empty,
+            significance_final=np.array([], dtype=object),
+            extended=np.array([], dtype=bool),
+            iterations=iterations,
+        )
+
+    nodes, adj = build_adjacency(edge_df)
+    matrices = path_usage_matrix(
+        adj,
+        nodes=nodes,
+        pair_weight=pair_weight,
+        share_mode=share_mode,
+        tie_tolerance=tie_tolerance,
+        max_paths_per_pair=max_paths_per_pair,
+    )
+    if initial_score == "winner":
+        w0 = winner_initial_score(matrices.edge_graph, matrices.path_load)
+    elif initial_score == "path_load":
+        w0 = matrices.path_load
+    else:
+        raise ValueError("initial_score must be 'winner' or 'path_load'")
+
+    degree = np.asarray(matrices.edge_graph.getnnz(axis=1), dtype=np.int64)
+    w_final = winner_restart_iteration(
+        matrices.edge_graph,
+        w0,
+        iterations=iterations,
+        sigma=sigma,
+        device=device,
+    )
+    ufc0, log0 = ufc_scores(w0)
+    ufc_final, log_final = ufc_scores(w_final)
+    p0 = ranking_pvalues(log0)
+    pf = ranking_pvalues(log_final)
+
+    return _sort_result(
+        WiperResult(
+            node_a=matrices.edges.node_a,
+            node_b=matrices.edges.node_b,
+            degree=degree,
+            w0=w0,
+            ufc0=ufc0,
+            log_ufc0=log0,
+            pvalue0=p0,
+            significance0=significance_symbols(p0),
+            w_final=w_final,
+            ufc_final=ufc_final,
+            log_ufc_final=log_final,
+            pvalue_final=pf,
+            significance_final=significance_symbols(pf),
+            extended=matrices.edges.extended,
+            iterations=iterations,
+        )
+    )
+
+
 def devices_report() -> str:
     from .backend import available_devices
 
     return f"available devices: {', '.join(available_devices())}"
-

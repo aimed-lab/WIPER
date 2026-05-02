@@ -36,13 +36,28 @@ an `extended` flag for inferred novel edges.
 ## Python API
 
 ```python
-from wiper import read_interactions, run_wiper
+from wiper import read_interactions, run_path_wiper, run_wiper
 
 interactions = read_interactions("interactions.tsv")
 result = run_wiper(interactions, sigma=0.2, iterations=200, include_novel=True)
 result.to_frame().to_csv("wiper_edges.tsv", sep="\t", index=False)
+
+# Path-aware corrected variant:
+path_result = run_path_wiper(interactions, sigma=0.85, iterations=200)
 ```
 
 See [`python/README.md`](python/README.md) for implementation details,
 performance notes, and test commands.
 
+## Algorithm Variants
+
+`run_wiper` preserves the published WIPER idea: compute an optimal-path
+node matrix `D`, transform endpoint distances into an edge-to-edge matrix `X`,
+then diffuse scores on `X`.
+
+`run_path_wiper` is a path-aware variant: compute which shortest weighted
+paths actually traverse each edge, build a sparse edge-by-node-pair credit
+matrix `WP`, construct an edge co-path graph `WP @ WP.T`, and run
+WINNER-style restart propagation over that edge graph. This is often the more
+direct model if the scientific question is "which associations carry optimal
+network flow?"
