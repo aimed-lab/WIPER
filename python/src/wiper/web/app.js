@@ -50,6 +50,13 @@ const els = {
   nodeThreshold: document.getElementById("nodeThresholdInput"),
 };
 
+function apiUrl(path) {
+  if (window.location.protocol === "file:") {
+    return `http://127.0.0.1:8765${path}`;
+  }
+  return path;
+}
+
 function fmt(value, digits = 3) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "-";
   return Number(value).toFixed(digits);
@@ -388,7 +395,7 @@ async function analyze() {
     device: els.device.value,
     includeNovel: els.includeNovel.checked,
   };
-  const response = await fetch("/api/analyze", {
+  const response = await fetch(apiUrl("/api/analyze"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

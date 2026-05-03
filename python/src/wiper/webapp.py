@@ -223,6 +223,9 @@ class WiperWebHandler(BaseHTTPRequestHandler):
     def _send(self, status: HTTPStatus, body: bytes, content_type: str) -> None:
         self.send_response(int(status))
         self.send_header("Content-Type", content_type)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -244,6 +247,9 @@ class WiperWebHandler(BaseHTTPRequestHandler):
         }.get(path.suffix or ".html", "application/octet-stream")
         data = resources.files("wiper").joinpath("web", name).read_bytes()
         self._send(HTTPStatus.OK, data, content_type)
+
+    def do_OPTIONS(self) -> None:  # noqa: N802
+        self._send(HTTPStatus.NO_CONTENT, b"", "text/plain; charset=utf-8")
 
     def do_POST(self) -> None:  # noqa: N802
         if self.path.split("?", 1)[0] != "/api/analyze":
