@@ -3,71 +3,72 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>WIPER Edge Explorer</title>
+    <title>network SPINNER</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="topbar">
       <div>
-        <h1>WIPER Edge Explorer</h1>
+        <h1>network SPINNER</h1>
+        <p>Seeded Protein Interaction Network Neighborhood Expansion and Ranking</p>
         <span id="summary">Ready</span>
       </div>
       <div class="toolbar">
         <button id="sampleBtn" type="button">Sample</button>
-        <button id="randomBtn" type="button">Random</button>
+        <button id="randomBtn" type="button">Generate</button>
+        <button id="geneterrainBtn" type="button">Geneterrain</button>
         <button id="analyzeBtn" type="button" class="primary">Analyze</button>
       </div>
     </header>
 
     <main class="workspace">
       <aside class="panel controls">
-        <label class="filePick">
-          <span>Network file</span>
-          <input id="fileInput" type="file" accept=".tsv,.txt,.csv" />
-        </label>
-        <label>
-          <span>Edge list</span>
-          <textarea id="edgeText" spellcheck="false"></textarea>
-        </label>
-        <div class="grid2">
-          <label>
-            <span>Iterations</span>
-            <input id="iterationsInput" type="number" min="0" max="500" value="80" />
-          </label>
-          <label>
-            <span>Device</span>
-            <select id="deviceInput">
-              <option value="cpu">CPU</option>
-              <option value="auto">Auto</option>
-              <option value="cuda">CUDA</option>
-              <option value="mps">MPS</option>
-            </select>
-          </label>
-        </div>
-        <label class="check">
-          <input id="includeNovelInput" type="checkbox" />
-          <span>WIPER1 novel edges</span>
-        </label>
-
         <section class="controlBlock">
-          <span class="blockLabel">Edge score</span>
-          <div class="segments" id="metricSegments">
-            <button type="button" data-metric="raw" class="active">Raw</button>
-            <button type="button" data-metric="wiper1">WIPER1</button>
-            <button type="button" data-metric="wiper2">WIPER2</button>
-          </div>
-          <div class="segments mini" id="edgeMeasureSegments">
-            <button type="button" data-measure="ufc" class="active">UFC</button>
-            <button type="button" data-measure="weight">W</button>
-          </div>
-          <div class="segments mini" id="edgeScaleSegments">
-            <button type="button" data-scale="normal" class="active">Normal</button>
-            <button type="button" data-scale="log">Log</button>
-          </div>
+          <span class="blockLabel">Project</span>
+          <label>
+            <span>Name</span>
+            <input id="projectNameInput" type="text" value="SPINNER session" />
+          </label>
+          <label>
+            <span>Folder</span>
+            <input id="projectFolderInput" type="text" placeholder="Project folder or study label" />
+          </label>
+          <label class="filePick">
+            <span>Network file</span>
+            <input id="fileInput" type="file" accept=".tsv,.txt,.csv" />
+          </label>
         </section>
 
         <section class="controlBlock">
-          <span class="blockLabel">Network generator</span>
+          <span class="blockLabel">Edge list</span>
+          <textarea id="edgeText" spellcheck="false"></textarea>
+        </section>
+
+        <section class="controlBlock">
+          <span class="blockLabel">Parameters</span>
+          <div class="grid2">
+            <label>
+              <span>Iterations</span>
+              <input id="iterationsInput" type="number" min="0" max="500" value="80" />
+            </label>
+            <label>
+              <span>Device</span>
+              <select id="deviceInput">
+                <option value="cpu">CPU</option>
+                <option value="auto">Auto</option>
+                <option value="cuda">CUDA</option>
+                <option value="mps">MPS</option>
+              </select>
+            </label>
+          </div>
+          <label class="check">
+            <input id="includeNovelInput" type="checkbox" />
+            <span>WIPER1 novel edges</span>
+          </label>
+        </section>
+
+        <section class="controlBlock">
+          <span class="blockLabel">Generator</span>
           <div class="segments" id="generatorModelSegments">
             <button type="button" data-generator="random" class="active">Random</button>
             <button type="button" data-generator="scale-free">Scale-free</button>
@@ -93,118 +94,155 @@
             </label>
           </div>
         </section>
-
-        <section class="controlBlock">
-          <span class="blockLabel">Edge filter</span>
-          <div class="segments" id="edgeFilterSegments">
-            <button type="button" data-mode="all" class="active">All</button>
-            <button type="button" data-mode="topn">Top N</button>
-            <button type="button" data-mode="percent">Top %</button>
-            <button type="button" data-mode="threshold">Score</button>
-          </div>
-          <div class="grid3">
-            <label>
-              <span>Top N</span>
-              <input id="edgeTopNInput" type="number" min="1" value="8" />
-            </label>
-            <label>
-              <span>Top %</span>
-              <input id="edgeTopPercentInput" type="number" min="1" max="100" value="25" />
-            </label>
-            <label>
-              <span>Min</span>
-              <input id="edgeThresholdInput" type="number" min="0" step="0.05" value="1" />
-            </label>
-          </div>
-        </section>
-
-        <section class="controlBlock">
-          <span class="blockLabel">Node WINNER</span>
-          <div class="segments mini" id="nodeScaleSegments">
-            <button type="button" data-scale="normal" class="active">Normal</button>
-            <button type="button" data-scale="log">Log</button>
-          </div>
-          <div class="segments mini" id="nodeSizeModeSegments">
-            <button type="button" data-size-mode="relative" class="active">Relative</button>
-            <button type="button" data-size-mode="absolute">Absolute</button>
-          </div>
-          <div class="segments" id="nodeFilterSegments">
-            <button type="button" data-mode="all" class="active">All</button>
-            <button type="button" data-mode="topn">Top N</button>
-            <button type="button" data-mode="percent">Top %</button>
-            <button type="button" data-mode="threshold">Score</button>
-          </div>
-          <div class="grid3">
-            <label>
-              <span>Top N</span>
-              <input id="nodeTopNInput" type="number" min="1" value="8" />
-            </label>
-            <label>
-              <span>Top %</span>
-              <input id="nodeTopPercentInput" type="number" min="1" max="100" value="50" />
-            </label>
-            <label>
-              <span>Min</span>
-              <input id="nodeThresholdInput" type="number" min="0" step="0.05" value="1" />
-            </label>
-          </div>
-          <div class="grid3">
-            <label>
-              <span>Min px</span>
-              <input id="nodeMinRadiusInput" type="number" min="1" max="40" step="1" value="7" />
-            </label>
-            <label>
-              <span>Max px</span>
-              <input id="nodeMaxRadiusInput" type="number" min="2" max="80" step="1" value="28" />
-            </label>
-            <label>
-              <span>Fold</span>
-              <input id="nodeRadiusFoldInput" type="number" min="1" max="20" step="0.5" value="4" />
-            </label>
-          </div>
-        </section>
-
-        <section class="selectedPanel" id="selectedPanel">
-          <span class="blockLabel">Selected edge</span>
-          <div id="selectedDetails">None</div>
-        </section>
       </aside>
 
-      <section class="canvasWrap">
-        <svg id="networkSvg" viewBox="0 0 900 620" role="img" aria-label="WIPER network"></svg>
-        <div id="edgeLegend" class="edgeLegend"></div>
-        <div id="sizeLegend" class="sizeLegend"></div>
-        <div id="graphTooltip" class="graphTooltip" hidden></div>
-      </section>
+      <section class="workbench">
+        <section class="explorerGrid">
+          <section class="panel explorerPanel">
+            <div class="explorerHeader">
+              <div>
+                <strong>Network explorer</strong>
+                <span id="viewSummary">Interactive ranked neighborhood</span>
+              </div>
+              <div class="compactControls">
+                <div class="segments" id="metricSegments">
+                  <button type="button" data-metric="raw" class="active">Raw</button>
+                  <button type="button" data-metric="wiper1">WIPER1</button>
+                  <button type="button" data-metric="wiper2">WIPER2</button>
+                </div>
+                <div class="segments mini" id="edgeMeasureSegments">
+                  <button type="button" data-measure="ufc" class="active">UFC</button>
+                  <button type="button" data-measure="weight">W</button>
+                </div>
+                <div class="segments mini" id="edgeScaleSegments">
+                  <button type="button" data-scale="normal" class="active">Normal</button>
+                  <button type="button" data-scale="log">Log</button>
+                </div>
+              </div>
+            </div>
 
-      <section class="panel tablePanel">
-        <div class="tableHeader">
-          <strong>Edges</strong>
-          <input id="filterInput" type="search" placeholder="Filter edge" />
-        </div>
-        <div class="tableScroll">
-          <table class="edgeTable">
-            <colgroup>
-              <col class="colEdge" />
-              <col class="colRaw" />
-              <col class="colScore" />
-              <col class="colScore" />
-              <col class="colPath" />
-              <col class="colReason" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th>Edge</th>
-                <th>Raw</th>
-                <th>WIPER1 UFC</th>
-                <th>WIPER2 UFC</th>
-                <th>Path load</th>
-                <th>Reason</th>
-              </tr>
-            </thead>
-            <tbody id="edgeRows"></tbody>
-          </table>
-        </div>
+            <div class="filterStrip">
+              <div class="filterGroup">
+                <span>Edges</span>
+                <div class="segments mini" id="edgeFilterSegments">
+                  <button type="button" data-mode="all" class="active">All</button>
+                  <button type="button" data-mode="topn">Top N</button>
+                  <button type="button" data-mode="percent">Top %</button>
+                  <button type="button" data-mode="threshold">Score</button>
+                </div>
+                <input id="edgeTopNInput" type="number" min="1" value="8" aria-label="Edge top N" />
+                <input id="edgeTopPercentInput" type="number" min="1" max="100" value="25" aria-label="Edge top percent" />
+                <input id="edgeThresholdInput" type="number" min="0" step="0.05" value="1" aria-label="Edge threshold" />
+              </div>
+              <div class="filterGroup">
+                <span>Nodes</span>
+                <div class="segments mini" id="nodeFilterSegments">
+                  <button type="button" data-mode="all" class="active">All</button>
+                  <button type="button" data-mode="topn">Top N</button>
+                  <button type="button" data-mode="percent">Top %</button>
+                  <button type="button" data-mode="threshold">Score</button>
+                </div>
+                <input id="nodeTopNInput" type="number" min="1" value="8" aria-label="Node top N" />
+                <input id="nodeTopPercentInput" type="number" min="1" max="100" value="50" aria-label="Node top percent" />
+                <input id="nodeThresholdInput" type="number" min="0" step="0.05" value="1" aria-label="Node threshold" />
+              </div>
+              <div class="filterGroup">
+                <span>Node size</span>
+                <div class="segments mini" id="nodeScaleSegments">
+                  <button type="button" data-scale="normal" class="active">Normal</button>
+                  <button type="button" data-scale="log">Log</button>
+                </div>
+                <div class="segments mini" id="nodeSizeModeSegments">
+                  <button type="button" data-size-mode="relative" class="active">Relative</button>
+                  <button type="button" data-size-mode="absolute">Absolute</button>
+                </div>
+                <input id="nodeMinRadiusInput" type="number" min="1" max="40" step="1" value="7" aria-label="Minimum node radius" />
+                <input id="nodeMaxRadiusInput" type="number" min="2" max="80" step="1" value="28" aria-label="Maximum node radius" />
+                <input id="nodeRadiusFoldInput" type="number" min="1" max="20" step="0.5" value="4" aria-label="Relative node radius fold" />
+              </div>
+            </div>
+
+            <div class="canvasWrap">
+              <svg id="networkSvg" viewBox="0 0 900 620" role="img" aria-label="SPINNER network"></svg>
+              <div id="edgeLegend" class="edgeLegend"></div>
+              <div id="sizeLegend" class="sizeLegend"></div>
+              <div id="graphTooltip" class="graphTooltip" hidden></div>
+            </div>
+          </section>
+
+          <aside class="panel agentPanel">
+            <div class="agentHeader">
+              <strong>Agentic chat</strong>
+              <span>Network construction assistant</span>
+            </div>
+            <div id="chatLog" class="chatLog"></div>
+            <div class="chatComposer">
+              <textarea id="chatInput" rows="3" spellcheck="false" placeholder="Try: show top 10 WIPER2 edges, use log scale, generate 20 nodes 35 edges, include novel"></textarea>
+              <button id="chatApplyBtn" type="button">Apply</button>
+            </div>
+          </aside>
+        </section>
+
+        <section class="panel resultsPanel">
+          <div class="resultsHeader">
+            <div class="tabs" id="resultTabs">
+              <button type="button" data-tab="edges" class="active">Edges</button>
+              <button type="button" data-tab="nodes">Nodes</button>
+              <button type="button" data-tab="export">Export</button>
+            </div>
+            <input id="filterInput" type="search" placeholder="Filter edge or node" />
+          </div>
+          <div class="tabPanel active" id="edgesTab">
+            <div class="tableScroll">
+              <table class="edgeTable">
+                <colgroup>
+                  <col class="colEdge" />
+                  <col class="colRaw" />
+                  <col class="colScore" />
+                  <col class="colScore" />
+                  <col class="colPath" />
+                  <col class="colReason" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Edge</th>
+                    <th>Raw</th>
+                    <th>WIPER1 UFC</th>
+                    <th>WIPER2 UFC</th>
+                    <th>Path load</th>
+                    <th>Reason</th>
+                  </tr>
+                </thead>
+                <tbody id="edgeRows"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="tabPanel" id="nodesTab">
+            <div class="tableScroll">
+              <table class="nodeTable">
+                <thead>
+                  <tr>
+                    <th>Node</th>
+                    <th>WINNER UFC</th>
+                    <th>WINNER W</th>
+                    <th>Degree</th>
+                    <th>Rank</th>
+                  </tr>
+                </thead>
+                <tbody id="nodeRows"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="tabPanel exportPanel" id="exportTab">
+            <button id="exportEdgesBtn" type="button">Export edge scores TSV</button>
+            <button id="exportNodesBtn" type="button">Export node scores TSV</button>
+            <button id="exportShownBtn" type="button">Export shown network TSV</button>
+            <section class="selectedPanel" id="selectedPanel">
+              <span class="blockLabel">Selected edge</span>
+              <div id="selectedDetails">None</div>
+            </section>
+          </div>
+        </section>
       </section>
     </main>
 

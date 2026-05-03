@@ -24,6 +24,7 @@ const state = {
   nodeScale: "normal",
   nodeSizeMode: "relative",
   generatorModel: "random",
+  resultTab: "edges",
   edgeFilter: "all",
   nodeFilter: "all",
   selected: null,
@@ -40,9 +41,12 @@ const els = {
   analyze: document.getElementById("analyzeBtn"),
   sample: document.getElementById("sampleBtn"),
   random: document.getElementById("randomBtn"),
+  geneterrain: document.getElementById("geneterrainBtn"),
   summary: document.getElementById("summary"),
+  viewSummary: document.getElementById("viewSummary"),
   svg: document.getElementById("networkSvg"),
   rows: document.getElementById("edgeRows"),
+  nodeRows: document.getElementById("nodeRows"),
   filter: document.getElementById("filterInput"),
   selected: document.getElementById("selectedDetails"),
   tooltip: document.getElementById("graphTooltip"),
@@ -61,6 +65,12 @@ const els = {
   generatorEdgeCount: document.getElementById("generatorEdgeCountInput"),
   generatorMinWeight: document.getElementById("generatorMinWeightInput"),
   generatorMaxWeight: document.getElementById("generatorMaxWeightInput"),
+  chatLog: document.getElementById("chatLog"),
+  chatInput: document.getElementById("chatInput"),
+  chatApply: document.getElementById("chatApplyBtn"),
+  exportEdges: document.getElementById("exportEdgesBtn"),
+  exportNodes: document.getElementById("exportNodesBtn"),
+  exportShown: document.getElementById("exportShownBtn"),
 };
 
 function apiUrl(path) {
@@ -606,6 +616,27 @@ function renderTable() {
   });
 }
 
+function renderNodesTable() {
+  if (!state.data || !els.nodeRows) return;
+  const nodeIds = activeNodeIds();
+  const needle = els.filter.value.trim().toLowerCase();
+  const nodes = [...state.data.nodes]
+    .filter((node) => !needle || node.id.toLowerCase().includes(needle))
+    .sort((a, b) => Number(nodeValue(b)) - Number(nodeValue(a)));
+  els.nodeRows.replaceChildren();
+  nodes.forEach((node) => {
+    const row = document.createElement("tr");
+    row.className = nodeIds.has(node.id) ? "" : "mutedRow";
+    row.innerHTML = `
+      <td><strong>${escapeHtml(node.id)}</strong><br>${nodeIds.has(node.id) ? '<span class="badge">shown</span>' : '<span class="rank">hidden</span>'}</td>
+      <td>${fmt(node.winner0)} -> ${fmt(node.winner)}</td>
+      <td>${fmt(node.winnerInitialWeight)} -> ${fmt(node.winnerWeight)}</td>
+      <td>${node.degree}</td>
+      <td>#${node.rank}</td>`;
+    els.nodeRows.appendChild(row);
+  });
+}
+
 function renderSelected() {
   const edge = selectedEdge();
   if (!edge) {
@@ -644,8 +675,12 @@ function render() {
   const nodeIds = activeNodeIds();
   const edgeIds = activeEdgeIds(nodeIds);
   els.summary.textContent = `${nodeIds.size}/${s.nodeCount} nodes, ${edgeIds.size}/${s.inputEdgeCount} edges shown, ${s.iterations} iterations`;
+  if (els.viewSummary) {
+    els.viewSummary.textContent = `${metricLabel()} ${state.metric === "raw" ? "raw" : state.edgeMeasure.toUpperCase()} view, ${state.edgeScale} edge scale`;
+  }
   drawNetwork();
   renderTable();
+  renderNodesTable();
   renderSelected();
 }
 
@@ -765,12 +800,203 @@ function makeRandom() {
   analyze();
 }
 
+function makeGeneterrain() {
+  setSegment("generatorModelSegments", "generatorModel", "scale-free", "data-generator");
+  els.generatorNodeCount.value = 24;
+  els.generatorEdgeCount.value = 44;
+  els.generatorMinWeight.value = "0.08";
+  els.generatorMaxWeight.value = "0.98";
+  const edges = makeGeneratedEdges(generatorSettings());
+  const boosted = edges.map(([a, b, w]) => {
+    const ai = Number(a.slice(1));
+    const bi = Number(b.slice(1));
+    const sameNeighborhood = Math.floor((ai - 1) / 6) === Math.floor((bi - 1) / 6);
+    return [a, b, Math.min(0.99, sameNeighborhood ? w + 0.18 : w)];
+  });
+  els.edgeText.value = ["node1\tnode2\tweight", ...boosted.map((e) => `${e[0]}\t${e[1]}\t${e[2].toFixed(3)}`)].join("\n");
+  analyze();
+}
+
+function rowsToTsv(rows) {
+  return rows.map((row) => row.map((value) => value === null || value === undefined ? "" : String(value)).join("\t")).join("\n");
+}
+
+function downloadText(filename, text) {
+  const blob = new Blob([text], { type: "text/tab-separated-values;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  URL.revokeObjectURL(link.href);
+  link.remove();
+}
+
+function exportEdges() {
+  if (!state.data) return;
+  const rows = [[
+    "nodeA", "nodeB", "rawWeight", "rawRank", "wiper1UFC", "wiper1W", "wiper1Rank",
+    "wiper2UFC", "wiper2W", "wiper2Rank", "pathLoad", "shown",
+  ]];
+  const shown = activeEdgeIds();
+  state.data.edges.forEach((edge) => rows.push([
+    edge.source,
+    edge.target,
+    edge.rawWeight,
+    edge.rawRank,
+    edge.wiper1 && edge.wiper1.score,
+    edge.wiper1 && edge.wiper1.weight,
+    edge.wiper1 && edge.wiper1.rank,
+    edge.wiper2 && edge.wiper2.score,
+    edge.wiper2 && edge.wiper2.weight,
+    edge.wiper2 && edge.wiper2.rank,
+    edge.wiper2 && edge.wiper2.pathLoad,
+    shown.has(edge.id) ? "Yes" : "No",
+  ]));
+  downloadText("spinner_edge_scores.tsv", rowsToTsv(rows));
+}
+
+function exportNodes() {
+  if (!state.data) return;
+  const shown = activeNodeIds();
+  const rows = [["node", "winner0UFC", "winnerUFC", "winner0W", "winnerW", "degree", "rank", "shown"]];
+  state.data.nodes.forEach((node) => rows.push([
+    node.id,
+    node.winner0,
+    node.winner,
+    node.winnerInitialWeight,
+    node.winnerWeight,
+    node.degree,
+    node.rank,
+    shown.has(node.id) ? "Yes" : "No",
+  ]));
+  downloadText("spinner_node_scores.tsv", rowsToTsv(rows));
+}
+
+function exportShownNetwork() {
+  if (!state.data) return;
+  const shown = activeEdgeIds();
+  const rows = [["node1", "node2", "weight", "score"]];
+  state.data.edges
+    .filter((edge) => shown.has(edge.id))
+    .forEach((edge) => rows.push([edge.source, edge.target, edge.rawWeight, edgeValue(edge)]));
+  downloadText("spinner_backbone_network.tsv", rowsToTsv(rows));
+}
+
+function addChatMessage(role, text) {
+  if (!els.chatLog) return;
+  const div = document.createElement("div");
+  div.className = `chatMessage ${role}`;
+  div.textContent = text;
+  els.chatLog.appendChild(div);
+  els.chatLog.scrollTop = els.chatLog.scrollHeight;
+}
+
+function setSegment(id, stateKey, value, dataKey) {
+  const buttons = document.querySelectorAll(`#${id} button`);
+  buttons.forEach((button) => {
+    const active = button.getAttribute(dataKey) === value;
+    button.classList.toggle("active", active);
+    if (active) state[stateKey] = value;
+  });
+}
+
+function applyChatInstruction() {
+  const text = (els.chatInput.value || "").trim();
+  if (!text) return;
+  addChatMessage("user", text);
+  const lower = text.toLowerCase();
+  const notes = [];
+
+  const topMatch = lower.match(/top\s+(\d+)/);
+  const percentMatch = lower.match(/(\d+)\s*%/);
+  const thresholdMatch = lower.match(/(?:threshold|min|score)\s+([0-9.]+)/);
+  const nodesMatch = lower.match(/(\d+)\s+nodes?/);
+  const edgesMatch = lower.match(/(\d+)\s+edges?/);
+  const iterationsMatch = lower.match(/(\d+)\s+iterations?/);
+
+  if (lower.includes("wiper2")) {
+    setSegment("metricSegments", "metric", "wiper2", "data-metric");
+    notes.push("using WIPER2");
+  } else if (lower.includes("wiper1")) {
+    setSegment("metricSegments", "metric", "wiper1", "data-metric");
+    notes.push("using WIPER1");
+  } else if (lower.includes("raw")) {
+    setSegment("metricSegments", "metric", "raw", "data-metric");
+    notes.push("using raw weights");
+  }
+  if (lower.includes(" log")) {
+    setSegment("edgeScaleSegments", "edgeScale", "log", "data-scale");
+    notes.push("edge scale set to log");
+  } else if (lower.includes("normal") || lower.includes("linear")) {
+    setSegment("edgeScaleSegments", "edgeScale", "normal", "data-scale");
+    notes.push("edge scale set to normal");
+  }
+  if (lower.includes(" ufc")) {
+    setSegment("edgeMeasureSegments", "edgeMeasure", "ufc", "data-measure");
+    notes.push("edge measure set to UFC");
+  } else if (lower.includes(" final w") || lower.includes(" weight")) {
+    setSegment("edgeMeasureSegments", "edgeMeasure", "weight", "data-measure");
+    notes.push("edge measure set to W");
+  }
+  if (topMatch) {
+    setSegment("edgeFilterSegments", "edgeFilter", "topn", "data-mode");
+    els.edgeTopN.value = topMatch[1];
+    notes.push(`showing top ${topMatch[1]} edges`);
+  } else if (percentMatch) {
+    setSegment("edgeFilterSegments", "edgeFilter", "percent", "data-mode");
+    els.edgeTopPercent.value = percentMatch[1];
+    notes.push(`showing top ${percentMatch[1]}% edges`);
+  } else if (thresholdMatch) {
+    setSegment("edgeFilterSegments", "edgeFilter", "threshold", "data-mode");
+    els.edgeThreshold.value = thresholdMatch[1];
+    notes.push(`edge threshold set to ${thresholdMatch[1]}`);
+  }
+  if (lower.includes("include novel")) {
+    els.includeNovel.checked = true;
+    notes.push("WIPER1 novel edges enabled");
+  }
+  if (lower.includes("scale-free") || lower.includes("scale free")) {
+    setSegment("generatorModelSegments", "generatorModel", "scale-free", "data-generator");
+    notes.push("generator set to scale-free");
+  } else if (lower.includes("random")) {
+    setSegment("generatorModelSegments", "generatorModel", "random", "data-generator");
+    notes.push("generator set to random");
+  }
+  if (nodesMatch) {
+    els.generatorNodeCount.value = nodesMatch[1];
+    notes.push(`${nodesMatch[1]} generator nodes`);
+  }
+  if (edgesMatch) {
+    els.generatorEdgeCount.value = edgesMatch[1];
+    notes.push(`${edgesMatch[1]} generator edges`);
+  }
+  if (iterationsMatch) {
+    els.iterations.value = iterationsMatch[1];
+    notes.push(`${iterationsMatch[1]} iterations`);
+  }
+  if (lower.includes("geneterrain")) {
+    makeGeneterrain();
+    addChatMessage("agent", "Generated a Geneterrain-style seeded neighborhood and rescored it.");
+  } else if (lower.includes("generate")) {
+    makeRandom();
+    addChatMessage("agent", `Generated and rescored a ${state.generatorModel} network.`);
+  } else if (lower.includes("analyze") || lower.includes("rescore") || lower.includes("novel")) {
+    analyze();
+    addChatMessage("agent", notes.length ? `Applied: ${notes.join("; ")}. Rescored network.` : "Rescored the current network.");
+  } else {
+    state.layoutSignature = "";
+    render();
+    addChatMessage("agent", notes.length ? `Applied: ${notes.join("; ")}.` : "I can adjust scoring, filters, generator size, scale, and analysis settings from short commands.");
+  }
+  els.chatInput.value = "";
+}
+
 function bindSegments(id, stateKey, dataKey) {
   document.getElementById(id).addEventListener("click", (event) => {
     const button = event.target.closest(`button[${dataKey}]`);
     if (!button) return;
-    state[stateKey] = button.getAttribute(dataKey);
-    document.querySelectorAll(`#${id} button`).forEach((b) => b.classList.toggle("active", b === button));
+    setSegment(id, stateKey, button.getAttribute(dataKey), dataKey);
     state.layoutSignature = "";
     render();
   });
@@ -785,13 +1011,34 @@ bindSegments("generatorModelSegments", "generatorModel", "data-generator");
 bindSegments("edgeFilterSegments", "edgeFilter", "data-mode");
 bindSegments("nodeFilterSegments", "nodeFilter", "data-mode");
 
+document.getElementById("resultTabs").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-tab]");
+  if (!button) return;
+  state.resultTab = button.getAttribute("data-tab");
+  document.querySelectorAll("#resultTabs button").forEach((b) => b.classList.toggle("active", b === button));
+  document.querySelectorAll(".tabPanel").forEach((panel) => panel.classList.toggle("active", panel.id === `${state.resultTab}Tab`));
+});
+
 els.analyze.addEventListener("click", analyze);
 els.sample.addEventListener("click", () => {
   els.edgeText.value = sampleNetwork;
   analyze();
 });
 els.random.addEventListener("click", makeRandom);
-els.filter.addEventListener("input", renderTable);
+els.geneterrain.addEventListener("click", makeGeneterrain);
+els.filter.addEventListener("input", () => {
+  renderTable();
+  renderNodesTable();
+});
+els.chatApply.addEventListener("click", applyChatInstruction);
+els.chatInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+    applyChatInstruction();
+  }
+});
+els.exportEdges.addEventListener("click", exportEdges);
+els.exportNodes.addEventListener("click", exportNodes);
+els.exportShown.addEventListener("click", exportShownNetwork);
 [
   els.edgeTopN,
   els.edgeTopPercent,
@@ -815,4 +1062,5 @@ els.fileInput.addEventListener("change", async () => {
 });
 
 els.edgeText.value = sampleNetwork;
+addChatMessage("agent", "Tell me how to shape the network: choose WIPER1 or WIPER2, show top N edges, generate a scale-free graph, or run Geneterrain.");
 analyze();

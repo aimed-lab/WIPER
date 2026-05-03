@@ -34,7 +34,7 @@ textarea {
 }
 
 .topbar {
-  height: 72px;
+  min-height: 76px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -46,14 +46,21 @@ textarea {
 
 h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1.1;
   font-weight: 750;
 }
 
+.topbar p {
+  margin: 4px 0 0;
+  color: #dbeafe;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
 #summary {
   display: block;
-  margin-top: 5px;
+  margin-top: 6px;
   color: #cbd5e1;
   font-size: 13px;
 }
@@ -88,9 +95,9 @@ button.primary,
 }
 
 .workspace {
-  height: calc(100vh - 72px);
+  height: calc(100vh - 76px);
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(360px, 1fr) minmax(420px, 42vw);
+  grid-template-columns: minmax(280px, 330px) minmax(0, 1fr);
   gap: 12px;
   padding: 12px;
 }
@@ -107,6 +114,31 @@ button.primary,
   min-width: 0;
   padding: 12px;
   overflow: auto;
+}
+
+.workbench {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(440px, 1fr) minmax(230px, 34vh);
+  gap: 12px;
+}
+
+.explorerGrid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+  gap: 12px;
+}
+
+.explorerPanel,
+.agentPanel,
+.resultsPanel {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 label,
@@ -137,7 +169,7 @@ select {
 }
 
 textarea {
-  min-height: 214px;
+  min-height: 198px;
   resize: vertical;
   padding: 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -221,9 +253,97 @@ select {
   padding-bottom: 5px;
 }
 
+.explorerHeader,
+.resultsHeader,
+.agentHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.explorerHeader strong,
+.agentHeader strong {
+  display: block;
+  font-size: 14px;
+}
+
+.explorerHeader span,
+.agentHeader span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.compactControls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.compactControls .segments {
+  flex-wrap: nowrap;
+}
+
+.compactControls .segments button {
+  flex: 0 0 auto;
+  min-width: 58px;
+}
+
+.filterStrip {
+  display: flex;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  background: #f8fafc;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.filterGroup {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: max-content;
+}
+
+.filterGroup > span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.filterGroup input {
+  width: 48px;
+  height: 30px;
+  padding: 5px 6px;
+  font-size: 12px;
+}
+
+.filterGroup .segments {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+
+.filterGroup .segments button {
+  flex: 0 0 auto;
+  min-width: 42px;
+  padding: 5px 7px;
+  font-size: 12px;
+}
+
 .canvasWrap {
   position: relative;
+  flex: 1;
   min-width: 0;
+  min-height: 300px;
   overflow: hidden;
 }
 
@@ -411,38 +531,67 @@ select {
   font-weight: 700;
 }
 
-.tablePanel {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.tableHeader {
+.resultsHeader {
   align-items: center;
   justify-content: space-between;
-  padding: 10px;
-  border-bottom: 1px solid var(--line);
 }
 
-.tableHeader input {
-  width: 190px;
+.tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.tabs button {
+  padding: 7px 11px;
+  background: #f8fafc;
+}
+
+.tabs button.active {
+  border-color: var(--teal);
+  background: var(--teal);
+  color: #fff;
+}
+
+.resultsHeader input {
+  width: 220px;
 }
 
 .tableScroll {
+  flex: 1;
   overflow: auto;
 }
 
-.edgeTable {
+.tabPanel {
+  min-height: 0;
+  display: none;
+  flex: 1;
+  overflow: hidden;
+}
+
+.tabPanel.active {
+  display: flex;
+}
+
+.edgeTable,
+.nodeTable {
   width: 100%;
-  min-width: 780px;
   table-layout: fixed;
   border-collapse: collapse;
   font-size: 12px;
 }
 
+.edgeTable {
+  min-width: 780px;
+}
+
+.nodeTable {
+  min-width: 560px;
+}
+
 .edgeTable th,
-.edgeTable td {
+.edgeTable td,
+.nodeTable th,
+.nodeTable td {
   border-bottom: 1px solid #e6edf5;
   padding: 8px 9px;
   text-align: left;
@@ -450,7 +599,8 @@ select {
   overflow-wrap: normal;
 }
 
-.edgeTable th {
+.edgeTable th,
+.nodeTable th {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -490,8 +640,14 @@ select {
 }
 
 .edgeTable tbody tr:hover,
-.edgeTable tbody tr.selected {
+.edgeTable tbody tr.selected,
+.nodeTable tbody tr:hover {
   background: #eaf7f5;
+}
+
+.mutedRow {
+  color: #64748b;
+  background: #fbfdff;
 }
 
 .rank {
@@ -520,14 +676,85 @@ select {
   color: #fee2e2;
 }
 
+.agentPanel {
+  background: #fbfdff;
+}
+
+.chatLog {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.chatMessage {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 9px;
+  background: #fff;
+  color: #1f2937;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.chatMessage.user {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.chatMessage.agent {
+  border-color: #c7ece8;
+  background: #ecfdf5;
+}
+
+.chatComposer {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.chatComposer textarea {
+  min-height: 76px;
+  max-height: 120px;
+  resize: vertical;
+}
+
+.chatComposer button {
+  justify-self: end;
+  border-color: var(--teal);
+  background: var(--teal);
+  color: #fff;
+}
+
+.exportPanel {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 10px;
+  padding: 12px;
+  overflow: auto;
+}
+
+.exportPanel .selectedPanel {
+  flex: 1 1 100%;
+  margin-top: 4px;
+}
+
 @media (max-width: 1180px) {
   .workspace {
-    grid-template-columns: minmax(260px, 320px) 1fr;
-    grid-template-rows: minmax(440px, 58vh) minmax(280px, 1fr);
+    grid-template-columns: minmax(250px, 310px) 1fr;
   }
 
-  .tablePanel {
-    grid-column: 1 / -1;
+  .explorerGrid {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(420px, 1fr) 260px;
+  }
+
+  .filterStrip {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -543,7 +770,21 @@ select {
     grid-template-columns: 1fr;
   }
 
+  .workbench {
+    grid-template-rows: auto auto;
+  }
+
   .canvasWrap {
     height: 460px;
+  }
+
+  .resultsHeader,
+  .explorerHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .resultsHeader input {
+    width: 100%;
   }
 }
