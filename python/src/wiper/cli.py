@@ -10,7 +10,7 @@ from pathlib import Path
 from . import __version__
 from .backend import available_devices
 from .io import read_interactions, write_wiper_result
-from .pipeline import run_path_wiper, run_wiper
+from .pipeline import run_wiper1, run_wiper2
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -21,14 +21,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--sigma",
         type=float,
         default=None,
-        help="Damping factor (default: 0.2 for paper, 0.85 for pathflow)",
+        help="Damping factor (default: 0.2 for WIPER1, 0.85 for WIPER2)",
     )
     parser.add_argument("--iterations", type=int, default=200, help="WIPER iterations (default: 200)")
     parser.add_argument(
         "--algorithm",
-        choices=["paper", "pathflow"],
-        default="paper",
-        help="Ranking algorithm: paper-faithful WIPER or path-aware corrected variant",
+        choices=["wiper1", "wiper2", "paper", "pathflow"],
+        default="wiper1",
+        help="Ranking algorithm: WIPER1 paper/deck algorithm or WIPER2 path-flow variant",
     )
     parser.add_argument(
         "--include-novel",
@@ -94,9 +94,9 @@ def main(argv: list[str] | None = None) -> int:
 
     t0 = time.perf_counter()
     interactions = read_interactions(args.interactions)
-    if args.algorithm == "pathflow":
+    if args.algorithm in {"wiper2", "pathflow"}:
         sigma = 0.85 if args.sigma is None else args.sigma
-        result = run_path_wiper(
+        result = run_wiper2(
             interactions,
             sigma=sigma,
             iterations=args.iterations,
@@ -108,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         sigma = 0.2 if args.sigma is None else args.sigma
-        result = run_wiper(
+        result = run_wiper1(
             interactions,
             sigma=sigma,
             iterations=args.iterations,

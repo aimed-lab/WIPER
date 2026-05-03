@@ -40,6 +40,7 @@ all = ["torch>=2.0"]
 
 [project.scripts]
 wiper = "wiper.cli:main"
+wiper-web = "wiper.webapp:main"
 
 [project.urls]
 "Paper" = "https://doi.org/10.1007/s40484-019-0180-y"
@@ -49,5 +50,4 @@ wiper = "wiper.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-wiper = ["py.typed"]
-
+wiper = ["py.typed", "web/*"]

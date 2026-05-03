@@ -12,7 +12,7 @@ from .core import (
 )
 from .io import build_adjacency, normalize_interactions, read_interactions, write_wiper_result
 from .pathflow import path_usage_matrix, winner_restart_iteration
-from .pipeline import WiperResult, devices_report, run_path_wiper, run_wiper
+from .pipeline import WiperResult, devices_report, run_path_wiper, run_wiper, run_wiper1, run_wiper2
 
 __version__ = "0.1.0"
 
@@ -33,6 +33,8 @@ __all__ = [
     "resolve_device",
     "run_path_wiper",
     "run_wiper",
+    "run_wiper1",
+    "run_wiper2",
     "winner_restart_iteration",
     "write_wiper_result",
 ]

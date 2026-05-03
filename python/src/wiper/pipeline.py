@@ -218,6 +218,32 @@ def run_wiper(
     )
 
 
+def run_wiper1(
+    interactions: pd.DataFrame,
+    *,
+    sigma: float = 0.2,
+    iterations: int = 200,
+    include_novel: bool = True,
+    max_hops: Optional[int] = None,
+    confidence_cutoff: float = 0.0,
+    device: Device = "auto",
+    n_jobs: int = -1,
+    chunk_size: int = 1000,
+) -> WiperResult:
+    """Run WIPER1, the paper/deck-faithful endpoint-distance algorithm."""
+    return run_wiper(
+        interactions,
+        sigma=sigma,
+        iterations=iterations,
+        include_novel=include_novel,
+        max_hops=max_hops,
+        confidence_cutoff=confidence_cutoff,
+        device=device,
+        n_jobs=n_jobs,
+        chunk_size=chunk_size,
+    )
+
+
 def run_path_wiper(
     interactions: pd.DataFrame,
     *,
@@ -303,6 +329,32 @@ def run_path_wiper(
             extended=matrices.edges.extended,
             iterations=iterations,
         )
+    )
+
+
+def run_wiper2(
+    interactions: pd.DataFrame,
+    *,
+    sigma: float = 0.85,
+    iterations: int = 200,
+    pair_weight: PairWeight = "uniform",
+    share_mode: ShareMode = "strength",
+    initial_score: InitialScore = "winner",
+    tie_tolerance: float = 1e-12,
+    max_paths_per_pair: int = 1024,
+    device: Device = "auto",
+) -> WiperResult:
+    """Run WIPER2, the shortest-path-flow/WINNER-style edge algorithm."""
+    return run_path_wiper(
+        interactions,
+        sigma=sigma,
+        iterations=iterations,
+        pair_weight=pair_weight,
+        share_mode=share_mode,
+        initial_score=initial_score,
+        tie_tolerance=tie_tolerance,
+        max_paths_per_pair=max_paths_per_pair,
+        device=device,
     )
 
 

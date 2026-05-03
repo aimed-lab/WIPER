@@ -17,15 +17,17 @@ wiper --interactions input.tsv -o edges.tsv \
       --sigma 0.2 --iterations 200 \
       --device auto --n-jobs -1 --include-novel
 
-wiper --algorithm pathflow --interactions input.tsv -o path_edges.tsv \
+wiper --algorithm wiper2 --interactions input.tsv -o path_edges.tsv \
       --iterations 200 --device auto
+
+wiper-web --host 127.0.0.1 --port 8765
 ```
 
 The input may have a header or no header. The first two columns are node names;
 the third column is the edge weight. Duplicate undirected edges are collapsed
 with the last-seen weight.
 
-## Algorithm Notes
+## WIPER1 Algorithm Notes
 
 1. Build weighted undirected `G`.
 2. Compute the optimal-path matrix `D` with shortest paths on `-log(G)`.
@@ -40,10 +42,10 @@ The default edge-to-edge network can be `O(E^2)`. Use `--chunk-size`,
 `--confidence-cutoff`, and `--max-hops` to bound memory and runtime on large
 networks.
 
-## Path-Aware Variant
+## WIPER2 Path-Aware Variant
 
-The CLI option `--algorithm pathflow` and Python function `run_path_wiper`
-implement a more literal shortest-path edge-flow model:
+The CLI option `--algorithm wiper2` and Python function `run_wiper2` implement
+a more literal shortest-path edge-flow model:
 
 1. Find all-pairs optimal weighted paths using `-log(weight)` costs.
 2. Split tied shortest paths exactly up to `--max-paths-per-pair`.
@@ -55,9 +57,18 @@ implement a more literal shortest-path edge-flow model:
 This variant does not infer novel edges because it ranks observed edges by
 their actual use in optimal paths.
 
+`--algorithm paper` and `--algorithm pathflow` remain accepted as compatibility
+aliases for `wiper1` and `wiper2`.
+
+## Web Explorer
+
+`wiper-web` serves a local app with file/paste loading, random small-network
+generation, raw/WIPER1/WIPER2 plot modes, edge-linked rank tables, and backbone
+filtering by top N or top percent.
+
 ## Test
 
 ```bash
 pytest
-python -m build
+python -m pip wheel . --no-deps
 ```

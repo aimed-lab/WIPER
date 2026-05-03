@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WIPER Edge Explorer</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>WIPER Edge Explorer</h1>
+        <span id="summary">Ready</span>
+      </div>
+      <div class="toolbar">
+        <button id="sampleBtn" type="button">Sample</button>
+        <button id="randomBtn" type="button">Random</button>
+        <button id="analyzeBtn" type="button" class="primary">Analyze</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="panel controls">
+        <label class="filePick">
+          <span>Network file</span>
+          <input id="fileInput" type="file" accept=".tsv,.txt,.csv" />
+        </label>
+        <label>
+          <span>Edge list</span>
+          <textarea id="edgeText" spellcheck="false"></textarea>
+        </label>
+        <div class="grid2">
+          <label>
+            <span>Iterations</span>
+            <input id="iterationsInput" type="number" min="0" max="500" value="80" />
+          </label>
+          <label>
+            <span>Device</span>
+            <select id="deviceInput">
+              <option value="cpu">CPU</option>
+              <option value="auto">Auto</option>
+              <option value="cuda">CUDA</option>
+              <option value="mps">MPS</option>
+            </select>
+          </label>
+        </div>
+        <label class="check">
+          <input id="includeNovelInput" type="checkbox" />
+          <span>WIPER1 novel edges</span>
+        </label>
+
+        <section class="controlBlock">
+          <span class="blockLabel">Plot score</span>
+          <div class="segments" id="metricSegments">
+            <button type="button" data-metric="raw" class="active">Raw</button>
+            <button type="button" data-metric="wiper1">WIPER1</button>
+            <button type="button" data-metric="wiper2">WIPER2</button>
+          </div>
+        </section>
+
+        <section class="controlBlock">
+          <span class="blockLabel">Backbone</span>
+          <div class="segments" id="backboneSegments">
+            <button type="button" data-mode="all" class="active">All</button>
+            <button type="button" data-mode="topn">Top N</button>
+            <button type="button" data-mode="percent">Top %</button>
+          </div>
+          <div class="grid2">
+            <label>
+              <span>Top N</span>
+              <input id="topNInput" type="number" min="1" value="8" />
+            </label>
+            <label>
+              <span>Top %</span>
+              <input id="topPercentInput" type="number" min="1" max="100" value="25" />
+            </label>
+          </div>
+        </section>
+
+        <section class="selected" id="selectedPanel">
+          <span class="blockLabel">Selected edge</span>
+          <div id="selectedDetails">None</div>
+        </section>
+      </aside>
+
+      <section class="canvasWrap">
+        <svg id="networkSvg" viewBox="0 0 900 620" role="img" aria-label="WIPER network"></svg>
+      </section>
+
+      <section class="panel tablePanel">
+        <div class="tableHeader">
+          <strong>Edges</strong>
+          <input id="filterInput" type="search" placeholder="Filter edge" />
+        </div>
+        <div class="tableScroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Edge</th>
+                <th>Raw</th>
+                <th>WIPER1</th>
+                <th>WIPER2</th>
+                <th>Path load</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody id="edgeRows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
