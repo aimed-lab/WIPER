@@ -21,6 +21,7 @@ const state = {
   metric: "raw",
   edgeScale: "normal",
   nodeScale: "normal",
+  nodeSizeMode: "relative",
   edgeFilter: "all",
   nodeFilter: "all",
   selected: null,
@@ -42,12 +43,17 @@ const els = {
   rows: document.getElementById("edgeRows"),
   filter: document.getElementById("filterInput"),
   selected: document.getElementById("selectedDetails"),
+  tooltip: document.getElementById("graphTooltip"),
+  sizeLegend: document.getElementById("sizeLegend"),
   edgeTopN: document.getElementById("edgeTopNInput"),
   edgeTopPercent: document.getElementById("edgeTopPercentInput"),
   edgeThreshold: document.getElementById("edgeThresholdInput"),
   nodeTopN: document.getElementById("nodeTopNInput"),
   nodeTopPercent: document.getElementById("nodeTopPercentInput"),
   nodeThreshold: document.getElementById("nodeThresholdInput"),
+  nodeMinRadius: document.getElementById("nodeMinRadiusInput"),
+  nodeMaxRadius: document.getElementById("nodeMaxRadiusInput"),
+  nodeRadiusFold: document.getElementById("nodeRadiusFoldInput"),
 };
 
 function apiUrl(path) {
@@ -60,6 +66,84 @@ function apiUrl(path) {
 function fmt(value, digits = 3) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "-";
   return Number(value).toFixed(digits);
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function metricLabel(metric = state.metric) {
+  if (metric === "raw") return "Raw";
+  return metric === "wiper1" ? "WIPER1" : "WIPER2";
+}
+
+function tooltipMove(event) {
+  if (!els.tooltip || els.tooltip.hidden) return;
+  const pad = 14;
+  const rect = els.tooltip.getBoundingClientRect();
+  let x = event.clientX + pad;
+  let y = event.clientY + pad;
+  if (x + rect.width > window.innerWidth - 8) x = event.clientX - rect.width - pad;
+  if (y + rect.height > window.innerHeight - 8) y = event.clientY - rect.height - pad;
+  els.tooltip.style.left = `${Math.max(8, x)}px`;
+  els.tooltip.style.top = `${Math.max(8, y)}px`;
+}
+
+function showTooltip(event, html) {
+  if (!els.tooltip) return;
+  els.tooltip.innerHTML = html;
+  els.tooltip.hidden = false;
+  tooltipMove(event);
+}
+
+function hideTooltip() {
+  if (!els.tooltip) return;
+  els.tooltip.hidden = true;
+}
+
+function wiperWeightLine(label, scores) {
+  if (!scores) return `<div class="tipLine"><span>${label}</span><strong>-</strong></div>`;
+  return `<div class="tipLine"><span>${label} W</span><strong>${fmt(scores.w0)} -> ${fmt(scores.weight)}</strong></div>`;
+}
+
+function edgeTooltip(edge) {
+  return `
+    <div class="tipTitle">${escapeHtml(edge.id.replace("\t", "-"))}</div>
+    <div class="tipGrid">
+      <div class="tipLine"><span>Raw weight</span><strong>${fmt(edge.rawWeight)}</strong></div>
+      ${wiperWeightLine("WIPER1", edge.wiper1)}
+      <div class="tipLine"><span>WIPER1 UFC</span><strong>${fmt(edge.wiper1 && edge.wiper1.ufc0)} -> ${fmt(edge.wiper1 && edge.wiper1.score)}</strong></div>
+      ${wiperWeightLine("WIPER2", edge.wiper2)}
+      <div class="tipLine"><span>WIPER2 UFC</span><strong>${fmt(edge.wiper2 && edge.wiper2.ufc0)} -> ${fmt(edge.wiper2 && edge.wiper2.score)}</strong></div>
+      <div class="tipLine"><span>Path load</span><strong>${fmt(edge.wiper2 && edge.wiper2.pathLoad)}</strong></div>
+    </div>`;
+}
+
+function nodeTooltip(node) {
+  const incident = state.data.edges
+    .filter((edge) => edge.source === node.id || edge.target === node.id)
+    .sort((a, b) => (edgeValue(b) || 0) - (edgeValue(a) || 0))
+    .slice(0, 6);
+  const rows = incident.map((edge) => {
+    const w1 = edge.wiper1 ? `${fmt(edge.wiper1.w0)} -> ${fmt(edge.wiper1.weight)}` : "-";
+    const w2 = edge.wiper2 ? `${fmt(edge.wiper2.w0)} -> ${fmt(edge.wiper2.weight)}` : "-";
+    return `<tr><td>${escapeHtml(edge.id.replace("\t", "-"))}</td><td>${w1}</td><td>${w2}</td></tr>`;
+  }).join("");
+  return `
+    <div class="tipTitle">${escapeHtml(node.id)}</div>
+    <div class="tipGrid">
+      <div class="tipLine"><span>WINNER UFC</span><strong>${fmt(node.winner0)} -> ${fmt(node.winner)}</strong></div>
+      <div class="tipLine"><span>WINNER W</span><strong>${fmt(node.winnerInitialWeight)} -> ${fmt(node.winnerWeight)}</strong></div>
+      <div class="tipLine"><span>Rank</span><strong>#${node.rank}</strong></div>
+      <div class="tipLine"><span>Degree</span><strong>${node.degree}</strong></div>
+    </div>
+    <div class="tipSubhead">Incident edge W[0] -> W[n]</div>
+    <table class="tipTable"><thead><tr><th>Edge</th><th>WIPER1</th><th>WIPER2</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function edgeValue(edge, metric = state.metric) {
@@ -76,6 +160,10 @@ function edgeRank(edge, metric) {
 
 function nodeValue(node) {
   return state.nodeScale === "log" ? node.logWinner : node.winner;
+}
+
+function nodeSizeValue(node) {
+  return node.winner;
 }
 
 function scaledEdgeValue(edge) {
@@ -99,6 +187,50 @@ function range(items, reader) {
 function normalize(value, min, max) {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) return 0;
   return Math.max(0, Math.min(1, (Number(value) - min) / (max - min || 1)));
+}
+
+function nodeRadiusBounds() {
+  const minRadius = Math.max(1, Number(els.nodeMinRadius.value) || 7);
+  if (state.nodeSizeMode === "absolute") {
+    return [
+      minRadius,
+      Math.max(minRadius + 1, Number(els.nodeMaxRadius.value) || 28),
+    ];
+  }
+  const fold = Math.max(1, Number(els.nodeRadiusFold.value) || 4);
+  return [minRadius, minRadius * fold];
+}
+
+function nodeRadius(node, minScore, maxScore) {
+  const [minRadius, maxRadius] = nodeRadiusBounds();
+  const t = normalize(nodeSizeValue(node), minScore, maxScore);
+  return minRadius + (maxRadius - minRadius) * t;
+}
+
+function renderSizeLegend(nodes, minScore, maxScore) {
+  if (!els.sizeLegend) return;
+  if (!nodes.length) {
+    els.sizeLegend.textContent = "";
+    return;
+  }
+  const [minRadius, maxRadius] = nodeRadiusBounds();
+  const legendScale = Math.min(1, 24 / Math.max(1, maxRadius));
+  const minLegendRadius = Math.max(2, minRadius * legendScale);
+  const maxLegendRadius = Math.max(minLegendRadius + 1, maxRadius * legendScale);
+  const mode = state.nodeSizeMode === "absolute"
+    ? `${fmt(minRadius, 0)}-${fmt(maxRadius, 0)} px`
+    : `${fmt(maxRadius / Math.max(1, minRadius), 1)}x radius`;
+  els.sizeLegend.innerHTML = `
+    <div class="legendTitle">Node size = final WINNER</div>
+    <svg viewBox="0 0 180 58" aria-hidden="true">
+      <circle cx="35" cy="31" r="${minLegendRadius}" class="legendNode"></circle>
+      <circle cx="118" cy="31" r="${maxLegendRadius}" class="legendNode"></circle>
+    </svg>
+    <div class="legendLabels">
+      <span>${fmt(minScore)}</span>
+      <span>${fmt(maxScore)}</span>
+    </div>
+    <div class="legendMode">${mode}</div>`;
 }
 
 function colorFor(t) {
@@ -332,6 +464,8 @@ function drawNetwork() {
   const edges = state.data.edges.filter((edge) => edgeIds.has(edge.id));
   const [edgeMin, edgeMax] = range(edges, scaledEdgeValue);
   const [nodeMin, nodeMax] = range(nodes, nodeValue);
+  const [nodeSizeMin, nodeSizeMax] = range(nodes, nodeSizeValue);
+  renderSizeLegend(nodes, nodeSizeMin, nodeSizeMax);
 
   const edgeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
   const nodeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -350,6 +484,9 @@ function drawNetwork() {
     line.setAttribute("stroke", colorFor(t));
     line.setAttribute("stroke-width", String(1.2 + 9.5 * t));
     line.setAttribute("class", `edge ${edge.id === state.selected ? "selected" : ""}`);
+    line.addEventListener("mouseenter", (event) => showTooltip(event, edgeTooltip(edge)));
+    line.addEventListener("mousemove", tooltipMove);
+    line.addEventListener("mouseleave", hideTooltip);
     line.addEventListener("click", () => {
       state.selected = edge.id;
       render();
@@ -361,7 +498,7 @@ function drawNetwork() {
   nodes.forEach((node) => {
     const p = state.positions.get(node.id);
     const t = normalize(nodeValue(node), nodeMin, nodeMax);
-    const radius = 7 + 19 * Math.sqrt(t);
+    const radius = nodeRadius(node, nodeSizeMin, nodeSizeMax);
     const activeNode = selected && (selected.source === node.id || selected.target === node.id);
     const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
     const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
@@ -370,6 +507,9 @@ function drawNetwork() {
     circle.setAttribute("r", activeNode ? radius + 3 : radius);
     circle.setAttribute("fill", colorFor(t));
     circle.setAttribute("class", `node ${activeNode ? "active" : ""}`);
+    circle.addEventListener("mouseenter", (event) => showTooltip(event, nodeTooltip(node)));
+    circle.addEventListener("mousemove", tooltipMove);
+    circle.addEventListener("mouseleave", hideTooltip);
     const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
     label.setAttribute("x", p.x + radius + 5);
     label.setAttribute("y", p.y + 4);
@@ -521,6 +661,7 @@ function bindSegments(id, stateKey, dataKey) {
 bindSegments("metricSegments", "metric", "data-metric");
 bindSegments("edgeScaleSegments", "edgeScale", "data-scale");
 bindSegments("nodeScaleSegments", "nodeScale", "data-scale");
+bindSegments("nodeSizeModeSegments", "nodeSizeMode", "data-size-mode");
 bindSegments("edgeFilterSegments", "edgeFilter", "data-mode");
 bindSegments("nodeFilterSegments", "nodeFilter", "data-mode");
 
@@ -538,6 +679,9 @@ els.filter.addEventListener("input", renderTable);
   els.nodeTopN,
   els.nodeTopPercent,
   els.nodeThreshold,
+  els.nodeMinRadius,
+  els.nodeMaxRadius,
+  els.nodeRadiusFold,
 ].forEach((input) => input.addEventListener("input", () => {
   state.layoutSignature = "";
   render();

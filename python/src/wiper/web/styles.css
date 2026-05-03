@@ -273,6 +273,127 @@ select {
   stroke-width: 4px;
 }
 
+.graphTooltip {
+  position: fixed;
+  z-index: 20;
+  max-width: 340px;
+  border: 1px solid #0f766e;
+  border-radius: 8px;
+  padding: 10px 11px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.18);
+  color: var(--ink);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.sizeLegend {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 208px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.legendTitle {
+  font-weight: 800;
+  color: #334155;
+}
+
+.sizeLegend svg {
+  display: block;
+  width: 100%;
+  height: 58px;
+  overflow: visible;
+}
+
+.legendNode {
+  fill: rgba(15, 118, 110, 0.72);
+  stroke: #334155;
+  stroke-width: 2;
+}
+
+.legendLabels,
+.legendMode {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+}
+
+.legendMode {
+  justify-content: flex-end;
+  margin-top: 3px;
+  font-weight: 700;
+}
+
+.tipTitle {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.tipGrid {
+  display: grid;
+  gap: 5px;
+}
+
+.tipLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  white-space: nowrap;
+}
+
+.tipLine span,
+.tipSubhead {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.tipSubhead {
+  margin-top: 10px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.tipTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tipTable th {
+  position: static;
+  border: 0;
+  padding: 2px 0 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: left;
+}
+
+.tipTable th:not(:first-child) {
+  padding-left: 10px;
+  text-align: right;
+}
+
+.tipTable td {
+  border: 0;
+  padding: 3px 0;
+}
+
+.tipTable td:not(:first-child) {
+  padding-left: 10px;
+  text-align: right;
+  font-weight: 700;
+}
+
 .tablePanel {
   min-width: 0;
   display: flex;

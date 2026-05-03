@@ -92,6 +92,10 @@
             <button type="button" data-scale="normal" class="active">Normal</button>
             <button type="button" data-scale="log">Log</button>
           </div>
+          <div class="segments mini" id="nodeSizeModeSegments">
+            <button type="button" data-size-mode="relative" class="active">Relative</button>
+            <button type="button" data-size-mode="absolute">Absolute</button>
+          </div>
           <div class="segments" id="nodeFilterSegments">
             <button type="button" data-mode="all" class="active">All</button>
             <button type="button" data-mode="topn">Top N</button>
@@ -112,6 +116,20 @@
               <input id="nodeThresholdInput" type="number" min="0" step="0.05" value="1" />
             </label>
           </div>
+          <div class="grid3">
+            <label>
+              <span>Min px</span>
+              <input id="nodeMinRadiusInput" type="number" min="1" max="40" step="1" value="7" />
+            </label>
+            <label>
+              <span>Max px</span>
+              <input id="nodeMaxRadiusInput" type="number" min="2" max="80" step="1" value="28" />
+            </label>
+            <label>
+              <span>Fold</span>
+              <input id="nodeRadiusFoldInput" type="number" min="1" max="20" step="0.5" value="4" />
+            </label>
+          </div>
         </section>
 
         <section class="selected" id="selectedPanel">
@@ -122,6 +140,8 @@
 
       <section class="canvasWrap">
         <svg id="networkSvg" viewBox="0 0 900 620" role="img" aria-label="WIPER network"></svg>
+        <div id="sizeLegend" class="sizeLegend"></div>
+        <div id="graphTooltip" class="graphTooltip" hidden></div>
       </section>
 
       <section class="panel tablePanel">

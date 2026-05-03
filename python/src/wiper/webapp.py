@@ -133,6 +133,9 @@ def _winner_node_scores(
         score = restart + sigma * (transition.T @ score)
     positive = score[score > 0]
     median = float(np.median(positive)) if positive.size else 1.0
+    positive0 = score0[score0 > 0]
+    median0 = float(np.median(positive0)) if positive0.size else 1.0
+    winner0 = np.divide(score0, median0, out=np.zeros_like(score0), where=median0 > 0)
     winner = np.divide(score, median, out=np.zeros_like(score), where=median > 0)
     ranks = competition_rank_desc(winner)
     return [
@@ -140,8 +143,10 @@ def _winner_node_scores(
             "id": node,
             "degree": int(degree[idx]),
             "weightedDegree": _clean(weighted_degree[idx]),
-            "winner0": _clean(score0[idx]),
+            "winner0": _clean(winner0[idx]),
+            "winnerInitialWeight": _clean(score0[idx]),
             "winner": _clean(winner[idx]),
+            "winnerWeight": _clean(score[idx]),
             "logWinner": _clean(np.log2(winner[idx]) if winner[idx] > 0 else np.nan),
             "rank": int(ranks[idx]),
         }
