@@ -162,6 +162,46 @@ function selectedEdge() {
   return state.data && state.data.edges.find((edge) => edge.id === state.selected);
 }
 
+function connectedComponents(nodes, edges) {
+  const ids = nodes.map((node) => node.id);
+  const adjacent = new Map(ids.map((id) => [id, []]));
+  edges.forEach((edge) => {
+    if (adjacent.has(edge.source) && adjacent.has(edge.target)) {
+      adjacent.get(edge.source).push(edge.target);
+      adjacent.get(edge.target).push(edge.source);
+    }
+  });
+  const seen = new Set();
+  const components = [];
+  ids.forEach((id) => {
+    if (seen.has(id)) return;
+    const stack = [id];
+    const component = [];
+    seen.add(id);
+    while (stack.length) {
+      const current = stack.pop();
+      component.push(current);
+      adjacent.get(current).forEach((next) => {
+        if (!seen.has(next)) {
+          seen.add(next);
+          stack.push(next);
+        }
+      });
+    }
+    components.push(component);
+  });
+  return components.sort((a, b) => b.length - a.length);
+}
+
+function seededJitter(seed) {
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return ((hash >>> 0) / 4294967295) - 0.5;
+}
+
 function ensureLayout(nodeIds, edgeIds) {
   if (!state.data) return;
   const width = 900;
@@ -173,42 +213,55 @@ function ensureLayout(nodeIds, edgeIds) {
   state.layoutSignature = signature;
   state.positions = new Map();
 
-  nodes.forEach((node, idx) => {
-    const angle = (2 * Math.PI * idx) / Math.max(1, nodes.length);
-    const ring = 170 + 28 * (idx % 4);
-    state.positions.set(node.id, {
-      x: width / 2 + Math.cos(angle) * ring,
-      y: height / 2 + Math.sin(angle) * ring,
-      vx: 0,
-      vy: 0,
+  const components = connectedComponents(nodes, edges);
+  const componentCenters = new Map();
+  const componentRing = Math.min(width, height) * 0.23;
+  components.forEach((component, componentIndex) => {
+    const angle = (2 * Math.PI * componentIndex) / Math.max(1, components.length);
+    const cx = width / 2 + (components.length > 1 ? Math.cos(angle) * componentRing : 0);
+    const cy = height / 2 + (components.length > 1 ? Math.sin(angle) * componentRing : 0);
+    component.forEach((id) => componentCenters.set(id, { x: cx, y: cy }));
+    component.forEach((id, idx) => {
+      const nodeAngle = (2 * Math.PI * idx) / Math.max(1, component.length);
+      const radius = 42 + 18 * Math.sqrt(component.length);
+      state.positions.set(id, {
+        x: cx + Math.cos(nodeAngle) * radius + seededJitter(`${id}:x`) * 24,
+        y: cy + Math.sin(nodeAngle) * radius + seededJitter(`${id}:y`) * 24,
+        dx: 0,
+        dy: 0,
+      });
     });
   });
 
-  const springBase = 105;
-  const springRange = 115;
-  const repulsion = 7200;
-  const damping = 0.76;
-  const step = 0.52;
+  const area = width * height;
   const visibleNodeIds = nodes.map((node) => node.id);
-  for (let tick = 0; tick < 520; tick += 1) {
-    const alpha = 1 - tick / 520;
+  const ideal = Math.sqrt(area / Math.max(1, visibleNodeIds.length));
+  let temperature = Math.min(width, height) * 0.24;
+  for (let tick = 0; tick < 640; tick += 1) {
+    visibleNodeIds.forEach((id) => {
+      const p = state.positions.get(id);
+      p.dx = 0;
+      p.dy = 0;
+    });
     for (let i = 0; i < visibleNodeIds.length; i += 1) {
       const a = state.positions.get(visibleNodeIds[i]);
       for (let j = i + 1; j < visibleNodeIds.length; j += 1) {
         const b = state.positions.get(visibleNodeIds[j]);
         let dx = a.x - b.x;
         let dy = a.y - b.y;
-        let dist2 = dx * dx + dy * dy;
-        if (dist2 < 1) {
-          dx = 1;
-          dy = 0;
-          dist2 = 1;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 0.01) {
+          dx = seededJitter(`${visibleNodeIds[i]}:${visibleNodeIds[j]}:x`);
+          dy = seededJitter(`${visibleNodeIds[i]}:${visibleNodeIds[j]}:y`);
+          dist = Math.sqrt(dx * dx + dy * dy) || 1;
         }
-        const force = (repulsion * alpha) / dist2;
-        a.vx += dx * force;
-        a.vy += dy * force;
-        b.vx -= dx * force;
-        b.vy -= dy * force;
+        const force = (ideal * ideal) / dist;
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+        a.dx += fx;
+        a.dy += fy;
+        b.dx -= fx;
+        b.dy -= fy;
       }
     }
     edges.forEach((edge) => {
@@ -218,24 +271,43 @@ function ensureLayout(nodeIds, edgeIds) {
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-      const strength = Math.max(0.05, edge.rawWeight || 0.3);
-      const target = springBase + springRange * (1 - strength);
-      const force = ((dist - target) / dist) * 0.035 * alpha;
-      a.vx += dx * force;
-      a.vy += dy * force;
-      b.vx -= dx * force;
-      b.vy -= dy * force;
+      const strength = 0.65 + 1.35 * Math.max(0.05, edge.rawWeight || 0.3);
+      const force = ((dist * dist) / ideal) * strength;
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
+      a.dx += fx;
+      a.dy += fy;
+      b.dx -= fx;
+      b.dy -= fy;
     });
     visibleNodeIds.forEach((id) => {
       const p = state.positions.get(id);
-      p.vx += (width / 2 - p.x) * 0.008 * alpha;
-      p.vy += (height / 2 - p.y) * 0.008 * alpha;
-      p.x = Math.max(38, Math.min(width - 38, p.x + p.vx * step));
-      p.y = Math.max(34, Math.min(height - 34, p.y + p.vy * step));
-      p.vx *= damping;
-      p.vy *= damping;
+      const center = componentCenters.get(id) || { x: width / 2, y: height / 2 };
+      p.dx += (center.x - p.x) * 0.045;
+      p.dy += (center.y - p.y) * 0.045;
+      const disp = Math.max(0.01, Math.sqrt(p.dx * p.dx + p.dy * p.dy));
+      p.x += (p.dx / disp) * Math.min(disp, temperature);
+      p.y += (p.dy / disp) * Math.min(disp, temperature);
     });
+    temperature *= 0.985;
   }
+
+  const positions = visibleNodeIds.map((id) => state.positions.get(id));
+  const minX = Math.min(...positions.map((p) => p.x));
+  const maxX = Math.max(...positions.map((p) => p.x));
+  const minY = Math.min(...positions.map((p) => p.y));
+  const maxY = Math.max(...positions.map((p) => p.y));
+  const padding = 58;
+  const spanX = Math.max(1, maxX - minX);
+  const spanY = Math.max(1, maxY - minY);
+  const scale = Math.min((width - padding * 2) / spanX, (height - padding * 2) / spanY, 1.35);
+  const offsetX = (width - spanX * scale) / 2 - minX * scale;
+  const offsetY = (height - spanY * scale) / 2 - minY * scale;
+  visibleNodeIds.forEach((id) => {
+    const p = state.positions.get(id);
+    p.x = p.x * scale + offsetX;
+    p.y = p.y * scale + offsetY;
+  });
 }
 
 function edgeReason(edge) {
