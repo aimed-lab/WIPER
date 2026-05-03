@@ -19,9 +19,11 @@ D\tH\t0.38`;
 const state = {
   data: null,
   metric: "raw",
+  edgeMeasure: "ufc",
   edgeScale: "normal",
   nodeScale: "normal",
   nodeSizeMode: "relative",
+  generatorModel: "random",
   edgeFilter: "all",
   nodeFilter: "all",
   selected: null,
@@ -45,6 +47,7 @@ const els = {
   selected: document.getElementById("selectedDetails"),
   tooltip: document.getElementById("graphTooltip"),
   sizeLegend: document.getElementById("sizeLegend"),
+  edgeLegend: document.getElementById("edgeLegend"),
   edgeTopN: document.getElementById("edgeTopNInput"),
   edgeTopPercent: document.getElementById("edgeTopPercentInput"),
   edgeThreshold: document.getElementById("edgeThresholdInput"),
@@ -54,6 +57,10 @@ const els = {
   nodeMinRadius: document.getElementById("nodeMinRadiusInput"),
   nodeMaxRadius: document.getElementById("nodeMaxRadiusInput"),
   nodeRadiusFold: document.getElementById("nodeRadiusFoldInput"),
+  generatorNodeCount: document.getElementById("generatorNodeCountInput"),
+  generatorEdgeCount: document.getElementById("generatorEdgeCountInput"),
+  generatorMinWeight: document.getElementById("generatorMinWeightInput"),
+  generatorMaxWeight: document.getElementById("generatorMaxWeightInput"),
 };
 
 function apiUrl(path) {
@@ -146,10 +153,17 @@ function nodeTooltip(node) {
     <table class="tipTable"><thead><tr><th>Edge</th><th>WIPER1</th><th>WIPER2</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
+function edgeScoreObject(edge, metric = state.metric) {
+  if (metric === "wiper1") return edge.wiper1;
+  if (metric === "wiper2") return edge.wiper2;
+  return null;
+}
+
 function edgeValue(edge, metric = state.metric) {
   if (metric === "raw") return edge.rawWeight;
-  if (metric === "wiper1") return edge.wiper1 && edge.wiper1.score;
-  return edge.wiper2 && edge.wiper2.score;
+  const scores = edgeScoreObject(edge, metric);
+  if (!scores) return null;
+  return state.edgeMeasure === "weight" ? scores.weight : scores.score;
 }
 
 function edgeRank(edge, metric) {
@@ -245,6 +259,40 @@ function colorFor(t) {
   const f = scaled - i;
   const rgb = stops[i].map((c, j) => Math.round(c + (stops[i + 1][j] - c) * f));
   return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+}
+
+function edgeStrokeWidth(t) {
+  return 1.2 + 9.5 * Math.max(0, Math.min(1, t));
+}
+
+function edgeLegendLabel() {
+  if (state.metric === "raw") return "Edge width = raw weight";
+  const measure = state.edgeMeasure === "weight" ? "final W" : "final UFC";
+  return `Edge width = ${metricLabel()} ${measure}`;
+}
+
+function renderEdgeLegend(edges, minScore, maxScore) {
+  if (!els.edgeLegend) return;
+  if (!edges.length) {
+    els.edgeLegend.textContent = "";
+    return;
+  }
+  const values = [0, 0.5, 1].map((t) => minScore + (maxScore - minScore) * t);
+  const scaleText = state.edgeScale === "log" ? "log2 scale" : "linear scale";
+  els.edgeLegend.innerHTML = `
+    <div class="legendTitle">${edgeLegendLabel()}</div>
+    <svg viewBox="0 0 214 48" aria-hidden="true">
+      ${[0, 0.5, 1].map((t, i) => `
+        <line x1="${18 + i * 76}" y1="25" x2="${58 + i * 76}" y2="25"
+          stroke="${colorFor(t)}" stroke-width="${edgeStrokeWidth(t)}" stroke-linecap="round"></line>
+      `).join("")}
+    </svg>
+    <div class="legendLabels">
+      <span>${fmt(values[0])}</span>
+      <span>${fmt(values[1])}</span>
+      <span>${fmt(values[2])}</span>
+    </div>
+    <div class="legendMode">${scaleText}</div>`;
 }
 
 function filterBy(items, mode, reader, topN, topPercent, threshold) {
@@ -465,6 +513,7 @@ function drawNetwork() {
   const [edgeMin, edgeMax] = range(edges, scaledEdgeValue);
   const [nodeMin, nodeMax] = range(nodes, nodeValue);
   const [nodeSizeMin, nodeSizeMax] = range(nodes, nodeSizeValue);
+  renderEdgeLegend(edges, edgeMin, edgeMax);
   renderSizeLegend(nodes, nodeSizeMin, nodeSizeMax);
 
   const edgeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -482,7 +531,7 @@ function drawNetwork() {
     line.setAttribute("x2", b.x);
     line.setAttribute("y2", b.y);
     line.setAttribute("stroke", colorFor(t));
-    line.setAttribute("stroke-width", String(1.2 + 9.5 * t));
+    line.setAttribute("stroke-width", String(edgeStrokeWidth(t)));
     line.setAttribute("class", `edge ${edge.id === state.selected ? "selected" : ""}`);
     line.addEventListener("mouseenter", (event) => showTooltip(event, edgeTooltip(edge)));
     line.addEventListener("mousemove", tooltipMove);
@@ -571,8 +620,10 @@ function renderSelected() {
   const lines = [
     ["Edge", edge.id.replace("\t", "-")],
     ["Raw weight", fmt(edge.rawWeight)],
-    ["WIPER1 score", fmt(edge.wiper1 && edge.wiper1.score)],
-    ["WIPER2 score", fmt(edge.wiper2 && edge.wiper2.score)],
+    ["WIPER1 UFC", fmt(edge.wiper1 && edge.wiper1.score)],
+    ["WIPER1 W", fmt(edge.wiper1 && edge.wiper1.weight)],
+    ["WIPER2 UFC", fmt(edge.wiper2 && edge.wiper2.score)],
+    ["WIPER2 W", fmt(edge.wiper2 && edge.wiper2.weight)],
     ["Path load", fmt(edge.wiper2 && edge.wiper2.pathLoad)],
     [`${edge.source} WINNER`, source ? `${fmt(source.winner)} (#${source.rank})` : "-"],
     [`${edge.target} WINNER`, target ? `${fmt(target.winner)} (#${target.rank})` : "-"],
@@ -625,24 +676,91 @@ async function analyze() {
   render();
 }
 
-function makeRandom() {
-  const count = 10 + Math.floor(Math.random() * 6);
-  const nodes = Array.from({ length: count }, (_, i) => `N${i + 1}`);
+function generatorSettings() {
+  const nodeCount = Math.max(3, Math.min(80, Math.round(Number(els.generatorNodeCount.value) || 12)));
+  const maxEdges = (nodeCount * (nodeCount - 1)) / 2;
+  const edgeCount = Math.max(nodeCount - 1, Math.min(maxEdges, Math.round(Number(els.generatorEdgeCount.value) || 18)));
+  let minWeight = Math.max(0, Math.min(1, Number(els.generatorMinWeight.value) || 0));
+  let maxWeight = Math.max(0, Math.min(1, Number(els.generatorMaxWeight.value) || 1));
+  if (minWeight > maxWeight) [minWeight, maxWeight] = [maxWeight, minWeight];
+  els.generatorNodeCount.value = nodeCount;
+  els.generatorEdgeCount.value = edgeCount;
+  els.generatorMinWeight.value = minWeight.toFixed(2);
+  els.generatorMaxWeight.value = maxWeight.toFixed(2);
+  return { nodeCount, edgeCount, minWeight, maxWeight };
+}
+
+function randomWeight(minWeight, maxWeight) {
+  return minWeight + Math.random() * (maxWeight - minWeight);
+}
+
+function makeGeneratedEdges(settings) {
+  const nodes = Array.from({ length: settings.nodeCount }, (_, i) => `N${i + 1}`);
   const edges = [];
-  const add = (a, b, w) => {
-    if (a === b) return;
+  const keys = new Set();
+  const degrees = new Map(nodes.map((node) => [node, 0]));
+  const add = (a, b, weight) => {
+    if (a === b) return false;
     const key = [a, b].sort().join("\t");
-    if (edges.some((e) => [e[0], e[1]].sort().join("\t") === key)) return;
-    edges.push([a, b, Math.max(0.05, Math.min(0.98, w))]);
+    if (keys.has(key)) return false;
+    keys.add(key);
+    degrees.set(a, (degrees.get(a) || 0) + 1);
+    degrees.set(b, (degrees.get(b) || 0) + 1);
+    edges.push([a, b, Math.max(0, Math.min(1, weight))]);
+    return true;
   };
-  for (let i = 0; i < count - 1; i += 1) add(nodes[i], nodes[i + 1], 0.72 + Math.random() * 0.24);
-  for (let i = 0; i < count; i += 1) {
-    for (let j = i + 2; j < count; j += 1) {
-      const sameZone = Math.floor(i / 4) === Math.floor(j / 4);
-      const p = sameZone ? 0.34 : 0.12;
-      if (Math.random() < p) add(nodes[i], nodes[j], sameZone ? 0.38 + Math.random() * 0.42 : 0.14 + Math.random() * 0.48);
+  const randomPair = () => {
+    const a = nodes[Math.floor(Math.random() * nodes.length)];
+    let b = nodes[Math.floor(Math.random() * nodes.length)];
+    while (b === a) b = nodes[Math.floor(Math.random() * nodes.length)];
+    return [a, b];
+  };
+  const weightedPick = (candidates, avoid = new Set()) => {
+    const pool = candidates.filter((node) => !avoid.has(node));
+    const total = pool.reduce((sum, node) => sum + (degrees.get(node) || 0) + 1, 0);
+    let draw = Math.random() * total;
+    for (const node of pool) {
+      draw -= (degrees.get(node) || 0) + 1;
+      if (draw <= 0) return node;
+    }
+    return pool[pool.length - 1];
+  };
+
+  if (state.generatorModel === "scale-free") {
+    add(nodes[0], nodes[1], randomWeight(settings.minWeight, settings.maxWeight));
+    for (let i = 2; i < nodes.length && edges.length < settings.edgeCount; i += 1) {
+      const existing = nodes.slice(0, i);
+      const first = weightedPick(existing);
+      add(nodes[i], first, randomWeight(settings.minWeight, settings.maxWeight));
+      if (edges.length < settings.edgeCount && Math.random() < 0.35) {
+        const second = weightedPick(existing, new Set([first]));
+        if (second) add(nodes[i], second, randomWeight(settings.minWeight, settings.maxWeight));
+      }
+    }
+    let attempts = 0;
+    while (edges.length < settings.edgeCount && attempts < settings.edgeCount * 80) {
+      const a = weightedPick(nodes);
+      const b = weightedPick(nodes, new Set([a]));
+      add(a, b, randomWeight(settings.minWeight, settings.maxWeight));
+      attempts += 1;
+    }
+  } else {
+    for (let i = 0; i < nodes.length - 1; i += 1) {
+      const high = 0.65 + Math.random() * 0.35;
+      add(nodes[i], nodes[i + 1], settings.minWeight + (settings.maxWeight - settings.minWeight) * high);
+    }
+    let attempts = 0;
+    while (edges.length < settings.edgeCount && attempts < settings.edgeCount * 80) {
+      const [a, b] = randomPair();
+      add(a, b, randomWeight(settings.minWeight, settings.maxWeight));
+      attempts += 1;
     }
   }
+  return edges;
+}
+
+function makeRandom() {
+  const edges = makeGeneratedEdges(generatorSettings());
   els.edgeText.value = ["node1\tnode2\tweight", ...edges.map((e) => `${e[0]}\t${e[1]}\t${e[2].toFixed(3)}`)].join("\n");
   analyze();
 }
@@ -659,9 +777,11 @@ function bindSegments(id, stateKey, dataKey) {
 }
 
 bindSegments("metricSegments", "metric", "data-metric");
+bindSegments("edgeMeasureSegments", "edgeMeasure", "data-measure");
 bindSegments("edgeScaleSegments", "edgeScale", "data-scale");
 bindSegments("nodeScaleSegments", "nodeScale", "data-scale");
 bindSegments("nodeSizeModeSegments", "nodeSizeMode", "data-size-mode");
+bindSegments("generatorModelSegments", "generatorModel", "data-generator");
 bindSegments("edgeFilterSegments", "edgeFilter", "data-mode");
 bindSegments("nodeFilterSegments", "nodeFilter", "data-mode");
 

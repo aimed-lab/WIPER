@@ -111,7 +111,7 @@ button.primary,
 
 label,
 .controlBlock,
-.selected {
+.selectedPanel {
   display: block;
   margin-bottom: 12px;
 }
@@ -202,7 +202,7 @@ select {
   padding-block: 6px;
 }
 
-.selected {
+.selectedPanel {
   border-top: 1px solid var(--line);
   padding-top: 12px;
 }
@@ -287,11 +287,10 @@ select {
   pointer-events: none;
 }
 
+.edgeLegend,
 .sizeLegend {
   position: absolute;
-  right: 12px;
   bottom: 12px;
-  width: 208px;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 9px 10px;
@@ -301,16 +300,34 @@ select {
   font-size: 11px;
 }
 
+.edgeLegend {
+  left: 12px;
+  width: 238px;
+}
+
+.sizeLegend {
+  right: 12px;
+  width: 208px;
+}
+
 .legendTitle {
   font-weight: 800;
   color: #334155;
 }
 
+.edgeLegend svg,
 .sizeLegend svg {
   display: block;
   width: 100%;
-  height: 58px;
   overflow: visible;
+}
+
+.edgeLegend svg {
+  height: 48px;
+}
+
+.sizeLegend svg {
+  height: 58px;
 }
 
 .legendNode {
@@ -416,21 +433,24 @@ select {
   overflow: auto;
 }
 
-table {
+.edgeTable {
   width: 100%;
+  min-width: 780px;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 12px;
 }
 
-th,
-td {
+.edgeTable th,
+.edgeTable td {
   border-bottom: 1px solid #e6edf5;
   padding: 8px 9px;
   text-align: left;
   vertical-align: top;
+  overflow-wrap: normal;
 }
 
-th {
+.edgeTable th {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -440,12 +460,37 @@ th {
   text-transform: uppercase;
 }
 
-tbody tr {
+.edgeTable .colEdge {
+  width: 17%;
+}
+
+.edgeTable .colRaw,
+.edgeTable .colScore {
+  width: 13%;
+}
+
+.edgeTable .colPath {
+  width: 12%;
+}
+
+.edgeTable .colReason {
+  width: 32%;
+}
+
+.edgeTable td:nth-child(1),
+.edgeTable td:nth-child(2),
+.edgeTable td:nth-child(3),
+.edgeTable td:nth-child(4),
+.edgeTable td:nth-child(5) {
+  white-space: nowrap;
+}
+
+.edgeTable tbody tr {
   cursor: pointer;
 }
 
-tbody tr:hover,
-tbody tr.selected {
+.edgeTable tbody tr:hover,
+.edgeTable tbody tr.selected {
   background: #eaf7f5;
 }
 
@@ -453,13 +498,16 @@ tbody tr.selected {
   color: var(--muted);
 }
 
-.reason {
-  min-width: 190px;
+.edgeTable .reason {
+  min-width: 0;
   color: #334155;
+  overflow-wrap: normal;
+  white-space: normal;
 }
 
 .badge {
   display: inline-block;
+  white-space: nowrap;
   border-radius: 999px;
   padding: 2px 7px;
   background: #e0f2fe;

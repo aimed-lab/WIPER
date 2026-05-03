@@ -56,9 +56,41 @@
             <button type="button" data-metric="wiper1">WIPER1</button>
             <button type="button" data-metric="wiper2">WIPER2</button>
           </div>
+          <div class="segments mini" id="edgeMeasureSegments">
+            <button type="button" data-measure="ufc" class="active">UFC</button>
+            <button type="button" data-measure="weight">W</button>
+          </div>
           <div class="segments mini" id="edgeScaleSegments">
             <button type="button" data-scale="normal" class="active">Normal</button>
             <button type="button" data-scale="log">Log</button>
+          </div>
+        </section>
+
+        <section class="controlBlock">
+          <span class="blockLabel">Network generator</span>
+          <div class="segments" id="generatorModelSegments">
+            <button type="button" data-generator="random" class="active">Random</button>
+            <button type="button" data-generator="scale-free">Scale-free</button>
+          </div>
+          <div class="grid2">
+            <label>
+              <span>Nodes</span>
+              <input id="generatorNodeCountInput" type="number" min="3" max="80" value="12" />
+            </label>
+            <label>
+              <span>Edges</span>
+              <input id="generatorEdgeCountInput" type="number" min="2" max="400" value="18" />
+            </label>
+          </div>
+          <div class="grid2">
+            <label>
+              <span>Min weight</span>
+              <input id="generatorMinWeightInput" type="number" min="0" max="1" step="0.05" value="0.10" />
+            </label>
+            <label>
+              <span>Max weight</span>
+              <input id="generatorMaxWeightInput" type="number" min="0" max="1" step="0.05" value="0.95" />
+            </label>
           </div>
         </section>
 
@@ -132,7 +164,7 @@
           </div>
         </section>
 
-        <section class="selected" id="selectedPanel">
+        <section class="selectedPanel" id="selectedPanel">
           <span class="blockLabel">Selected edge</span>
           <div id="selectedDetails">None</div>
         </section>
@@ -140,6 +172,7 @@
 
       <section class="canvasWrap">
         <svg id="networkSvg" viewBox="0 0 900 620" role="img" aria-label="WIPER network"></svg>
+        <div id="edgeLegend" class="edgeLegend"></div>
         <div id="sizeLegend" class="sizeLegend"></div>
         <div id="graphTooltip" class="graphTooltip" hidden></div>
       </section>
@@ -150,13 +183,21 @@
           <input id="filterInput" type="search" placeholder="Filter edge" />
         </div>
         <div class="tableScroll">
-          <table>
+          <table class="edgeTable">
+            <colgroup>
+              <col class="colEdge" />
+              <col class="colRaw" />
+              <col class="colScore" />
+              <col class="colScore" />
+              <col class="colPath" />
+              <col class="colReason" />
+            </colgroup>
             <thead>
               <tr>
                 <th>Edge</th>
                 <th>Raw</th>
-                <th>WIPER1</th>
-                <th>WIPER2</th>
+                <th>WIPER1 UFC</th>
+                <th>WIPER2 UFC</th>
                 <th>Path load</th>
                 <th>Reason</th>
               </tr>
