@@ -18,6 +18,7 @@ import pandas as pd
 from .io import build_adjacency, normalize_interactions
 from .pathflow import path_usage_matrix
 from .pipeline import WiperResult, run_wiper1, run_wiper2
+from .stats import competition_rank_desc
 
 
 def _splitter(first_line: str) -> str:
@@ -110,6 +111,44 @@ def _pathflow_debug(edge_df: pd.DataFrame) -> dict[str, dict[str, Any]]:
     return out
 
 
+def _winner_node_scores(
+    edge_df: pd.DataFrame,
+    *,
+    iterations: int,
+    sigma: float = 0.85,
+) -> list[dict[str, Any]]:
+    nodes, adj = build_adjacency(edge_df)
+    degree = np.count_nonzero(adj > 0, axis=1).astype(np.int64)
+    weighted_degree = adj.sum(axis=1).astype(np.float64)
+    score0 = np.zeros(len(nodes), dtype=np.float64)
+    valid = degree > 0
+    score0[valid] = (weighted_degree[valid] ** 2) / degree[valid]
+    row_sum = adj.sum(axis=1).astype(np.float64)
+    transition = np.zeros_like(adj)
+    nonzero = row_sum > 0
+    transition[nonzero] = adj[nonzero] / row_sum[nonzero, None]
+    score = score0.copy()
+    restart = (1.0 - sigma) * score0
+    for _ in range(iterations):
+        score = restart + sigma * (transition.T @ score)
+    positive = score[score > 0]
+    median = float(np.median(positive)) if positive.size else 1.0
+    winner = np.divide(score, median, out=np.zeros_like(score), where=median > 0)
+    ranks = competition_rank_desc(winner)
+    return [
+        {
+            "id": node,
+            "degree": int(degree[idx]),
+            "weightedDegree": _clean(weighted_degree[idx]),
+            "winner0": _clean(score0[idx]),
+            "winner": _clean(winner[idx]),
+            "logWinner": _clean(np.log2(winner[idx]) if winner[idx] > 0 else np.nan),
+            "rank": int(ranks[idx]),
+        }
+        for idx, node in enumerate(nodes)
+    ]
+
+
 def analyze_edges_text(
     text: str,
     *,
@@ -128,6 +167,7 @@ def analyze_edges_text(
     map2 = _result_map(wiper2)
     path_debug = _pathflow_debug(edge_df)
 
+    node_scores = _winner_node_scores(edge_df, iterations=iterations)
     raw_rank = edge_df["weight"].rank(method="min", ascending=False).astype(int).to_numpy()
     raw: dict[str, dict[str, Any]] = {}
     nodes: set[str] = set()
@@ -162,7 +202,7 @@ def analyze_edges_text(
         )
 
     return {
-        "nodes": [{"id": node} for node in sorted(nodes)],
+        "nodes": sorted(node_scores, key=lambda item: item["id"]),
         "edges": edges,
         "summary": {
             "nodeCount": len(nodes),

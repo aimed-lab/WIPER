@@ -50,29 +50,66 @@
         </label>
 
         <section class="controlBlock">
-          <span class="blockLabel">Plot score</span>
+          <span class="blockLabel">Edge score</span>
           <div class="segments" id="metricSegments">
             <button type="button" data-metric="raw" class="active">Raw</button>
             <button type="button" data-metric="wiper1">WIPER1</button>
             <button type="button" data-metric="wiper2">WIPER2</button>
           </div>
+          <div class="segments mini" id="edgeScaleSegments">
+            <button type="button" data-scale="normal" class="active">Normal</button>
+            <button type="button" data-scale="log">Log</button>
+          </div>
         </section>
 
         <section class="controlBlock">
-          <span class="blockLabel">Backbone</span>
-          <div class="segments" id="backboneSegments">
+          <span class="blockLabel">Edge filter</span>
+          <div class="segments" id="edgeFilterSegments">
             <button type="button" data-mode="all" class="active">All</button>
             <button type="button" data-mode="topn">Top N</button>
             <button type="button" data-mode="percent">Top %</button>
+            <button type="button" data-mode="threshold">Score</button>
           </div>
-          <div class="grid2">
+          <div class="grid3">
             <label>
               <span>Top N</span>
-              <input id="topNInput" type="number" min="1" value="8" />
+              <input id="edgeTopNInput" type="number" min="1" value="8" />
             </label>
             <label>
               <span>Top %</span>
-              <input id="topPercentInput" type="number" min="1" max="100" value="25" />
+              <input id="edgeTopPercentInput" type="number" min="1" max="100" value="25" />
+            </label>
+            <label>
+              <span>Min</span>
+              <input id="edgeThresholdInput" type="number" min="0" step="0.05" value="1" />
+            </label>
+          </div>
+        </section>
+
+        <section class="controlBlock">
+          <span class="blockLabel">Node WINNER</span>
+          <div class="segments mini" id="nodeScaleSegments">
+            <button type="button" data-scale="normal" class="active">Normal</button>
+            <button type="button" data-scale="log">Log</button>
+          </div>
+          <div class="segments" id="nodeFilterSegments">
+            <button type="button" data-mode="all" class="active">All</button>
+            <button type="button" data-mode="topn">Top N</button>
+            <button type="button" data-mode="percent">Top %</button>
+            <button type="button" data-mode="threshold">Score</button>
+          </div>
+          <div class="grid3">
+            <label>
+              <span>Top N</span>
+              <input id="nodeTopNInput" type="number" min="1" value="8" />
+            </label>
+            <label>
+              <span>Top %</span>
+              <input id="nodeTopPercentInput" type="number" min="1" max="100" value="50" />
+            </label>
+            <label>
+              <span>Min</span>
+              <input id="nodeThresholdInput" type="number" min="0" step="0.05" value="1" />
             </label>
           </div>
         </section>

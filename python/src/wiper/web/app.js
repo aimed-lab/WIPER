@@ -19,9 +19,13 @@ D\tH\t0.38`;
 const state = {
   data: null,
   metric: "raw",
-  backbone: "all",
+  edgeScale: "normal",
+  nodeScale: "normal",
+  edgeFilter: "all",
+  nodeFilter: "all",
   selected: null,
   positions: new Map(),
+  layoutSignature: "",
 };
 
 const els = {
@@ -38,8 +42,12 @@ const els = {
   rows: document.getElementById("edgeRows"),
   filter: document.getElementById("filterInput"),
   selected: document.getElementById("selectedDetails"),
-  topN: document.getElementById("topNInput"),
-  topPercent: document.getElementById("topPercentInput"),
+  edgeTopN: document.getElementById("edgeTopNInput"),
+  edgeTopPercent: document.getElementById("edgeTopPercentInput"),
+  edgeThreshold: document.getElementById("edgeThresholdInput"),
+  nodeTopN: document.getElementById("nodeTopNInput"),
+  nodeTopPercent: document.getElementById("nodeTopPercentInput"),
+  nodeThreshold: document.getElementById("nodeThresholdInput"),
 };
 
 function fmt(value, digits = 3) {
@@ -47,84 +55,149 @@ function fmt(value, digits = 3) {
   return Number(value).toFixed(digits);
 }
 
-function metricValue(edge, metric = state.metric) {
+function edgeValue(edge, metric = state.metric) {
   if (metric === "raw") return edge.rawWeight;
   if (metric === "wiper1") return edge.wiper1 && edge.wiper1.score;
   return edge.wiper2 && edge.wiper2.score;
 }
 
-function metricRank(edge, metric) {
+function edgeRank(edge, metric) {
   if (metric === "raw") return edge.rawRank;
   if (metric === "wiper1") return edge.wiper1 && edge.wiper1.rank;
   return edge.wiper2 && edge.wiper2.rank;
 }
 
-function scoreRange(edges) {
-  const vals = edges.map((e) => metricValue(e)).filter((v) => v !== null && v !== undefined);
+function nodeValue(node) {
+  return state.nodeScale === "log" ? node.logWinner : node.winner;
+}
+
+function scaledEdgeValue(edge) {
+  const value = edgeValue(edge);
+  if (value === null || value === undefined) return null;
+  return state.edgeScale === "log" ? Math.log2(Math.max(Number(value), Number.EPSILON)) : Number(value);
+}
+
+function finiteValues(items, reader) {
+  return items.map(reader).filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v))).map(Number);
+}
+
+function range(items, reader) {
+  const vals = finiteValues(items, reader);
   if (!vals.length) return [0, 1];
   const min = Math.min(...vals);
   const max = Math.max(...vals);
-  return min === max ? [0, max || 1] : [min, max];
+  return min === max ? [Math.min(0, min), max || 1] : [min, max];
 }
 
-function colorFor(value, min, max) {
-  if (value === null || value === undefined) return "#cbd5e1";
-  const t = Math.max(0, Math.min(1, (value - min) / (max - min || 1)));
+function normalize(value, min, max) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return 0;
+  return Math.max(0, Math.min(1, (Number(value) - min) / (max - min || 1)));
+}
+
+function colorFor(t) {
   const stops = [
     [37, 99, 235],
     [15, 118, 110],
     [180, 83, 9],
     [190, 18, 60],
   ];
-  const scaled = t * (stops.length - 1);
+  const scaled = Math.max(0, Math.min(1, t)) * (stops.length - 1);
   const i = Math.min(stops.length - 2, Math.floor(scaled));
   const f = scaled - i;
   const rgb = stops[i].map((c, j) => Math.round(c + (stops[i + 1][j] - c) * f));
   return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
 }
 
-function activeEdges() {
-  if (!state.data) return [];
-  const scored = state.data.edges
-    .filter((edge) => metricValue(edge) !== null && metricValue(edge) !== undefined)
-    .sort((a, b) => metricValue(b) - metricValue(a));
-  if (state.backbone === "all") return scored;
-  if (state.backbone === "topn") return scored.slice(0, Math.max(1, Number(els.topN.value) || 1));
-  const count = Math.max(1, Math.ceil(scored.length * (Math.max(1, Number(els.topPercent.value) || 1) / 100)));
-  return scored.slice(0, count);
+function filterBy(items, mode, reader, topN, topPercent, threshold) {
+  const scored = items
+    .filter((item) => reader(item) !== null && reader(item) !== undefined && Number.isFinite(Number(reader(item))))
+    .sort((a, b) => Number(reader(b)) - Number(reader(a)));
+  if (mode === "all") return new Set(scored.map((item) => item.id));
+  if (mode === "topn") return new Set(scored.slice(0, Math.max(1, Number(topN) || 1)).map((item) => item.id));
+  if (mode === "percent") {
+    const count = Math.max(1, Math.ceil(scored.length * (Math.max(1, Number(topPercent) || 1) / 100)));
+    return new Set(scored.slice(0, count).map((item) => item.id));
+  }
+  const minScore = Number(threshold) || 0;
+  return new Set(scored.filter((item) => Number(reader(item)) >= minScore).map((item) => item.id));
 }
 
-function ensureLayout() {
+function activeNodeIds() {
+  if (!state.data) return new Set();
+  return filterBy(
+    state.data.nodes,
+    state.nodeFilter,
+    (node) => nodeValue(node),
+    els.nodeTopN.value,
+    els.nodeTopPercent.value,
+    els.nodeThreshold.value,
+  );
+}
+
+function activeEdgeIds(nodeIds = activeNodeIds()) {
+  if (!state.data) return new Set();
+  const edgeIds = filterBy(
+    state.data.edges,
+    state.edgeFilter,
+    (edge) => scaledEdgeValue(edge),
+    els.edgeTopN.value,
+    els.edgeTopPercent.value,
+    els.edgeThreshold.value,
+  );
+  return new Set(
+    state.data.edges
+      .filter((edge) => edgeIds.has(edge.id) && nodeIds.has(edge.source) && nodeIds.has(edge.target))
+      .map((edge) => edge.id),
+  );
+}
+
+function selectedEdge() {
+  return state.data && state.data.edges.find((edge) => edge.id === state.selected);
+}
+
+function ensureLayout(nodeIds, edgeIds) {
   if (!state.data) return;
   const width = 900;
   const height = 620;
-  const nodes = state.data.nodes.map((n) => n.id);
-  const nodeSet = new Set(nodes);
-  for (const key of Array.from(state.positions.keys())) {
-    if (!nodeSet.has(key)) state.positions.delete(key);
-  }
-  nodes.forEach((id, idx) => {
-    if (!state.positions.has(id)) {
-      const angle = (2 * Math.PI * idx) / Math.max(1, nodes.length);
-      state.positions.set(id, {
-        x: width / 2 + Math.cos(angle) * 230,
-        y: height / 2 + Math.sin(angle) * 210,
-        vx: 0,
-        vy: 0,
-      });
-    }
+  const nodes = state.data.nodes.filter((node) => nodeIds.has(node.id));
+  const edges = state.data.edges.filter((edge) => edgeIds.has(edge.id));
+  const signature = `${nodes.map((n) => n.id).join(",")}|${edges.map((e) => e.id).join(",")}`;
+  if (signature === state.layoutSignature) return;
+  state.layoutSignature = signature;
+  state.positions = new Map();
+
+  nodes.forEach((node, idx) => {
+    const angle = (2 * Math.PI * idx) / Math.max(1, nodes.length);
+    const ring = 170 + 28 * (idx % 4);
+    state.positions.set(node.id, {
+      x: width / 2 + Math.cos(angle) * ring,
+      y: height / 2 + Math.sin(angle) * ring,
+      vx: 0,
+      vy: 0,
+    });
   });
 
-  const edges = state.data.edges.filter((e) => e.isInput);
-  for (let tick = 0; tick < 180; tick += 1) {
-    for (let i = 0; i < nodes.length; i += 1) {
-      const a = state.positions.get(nodes[i]);
-      for (let j = i + 1; j < nodes.length; j += 1) {
-        const b = state.positions.get(nodes[j]);
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
-        const dist2 = Math.max(80, dx * dx + dy * dy);
-        const force = 1700 / dist2;
+  const springBase = 105;
+  const springRange = 115;
+  const repulsion = 7200;
+  const damping = 0.76;
+  const step = 0.52;
+  const visibleNodeIds = nodes.map((node) => node.id);
+  for (let tick = 0; tick < 520; tick += 1) {
+    const alpha = 1 - tick / 520;
+    for (let i = 0; i < visibleNodeIds.length; i += 1) {
+      const a = state.positions.get(visibleNodeIds[i]);
+      for (let j = i + 1; j < visibleNodeIds.length; j += 1) {
+        const b = state.positions.get(visibleNodeIds[j]);
+        let dx = a.x - b.x;
+        let dy = a.y - b.y;
+        let dist2 = dx * dx + dy * dy;
+        if (dist2 < 1) {
+          dx = 1;
+          dy = 0;
+          dist2 = 1;
+        }
+        const force = (repulsion * alpha) / dist2;
         a.vx += dx * force;
         a.vy += dy * force;
         b.vx -= dx * force;
@@ -134,36 +207,32 @@ function ensureLayout() {
     edges.forEach((edge) => {
       const a = state.positions.get(edge.source);
       const b = state.positions.get(edge.target);
+      if (!a || !b) return;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-      const target = 118 + (1 - (edge.rawWeight || 0.5)) * 96;
-      const force = (dist - target) * 0.004;
+      const strength = Math.max(0.05, edge.rawWeight || 0.3);
+      const target = springBase + springRange * (1 - strength);
+      const force = ((dist - target) / dist) * 0.035 * alpha;
       a.vx += dx * force;
       a.vy += dy * force;
       b.vx -= dx * force;
       b.vy -= dy * force;
     });
-    nodes.forEach((id) => {
+    visibleNodeIds.forEach((id) => {
       const p = state.positions.get(id);
-      p.vx += (width / 2 - p.x) * 0.002;
-      p.vy += (height / 2 - p.y) * 0.002;
-      p.x = Math.max(45, Math.min(width - 45, p.x + p.vx));
-      p.y = Math.max(35, Math.min(height - 35, p.y + p.vy));
-      p.vx *= 0.72;
-      p.vy *= 0.72;
+      p.vx += (width / 2 - p.x) * 0.008 * alpha;
+      p.vy += (height / 2 - p.y) * 0.008 * alpha;
+      p.x = Math.max(38, Math.min(width - 38, p.x + p.vx * step));
+      p.y = Math.max(34, Math.min(height - 34, p.y + p.vy * step));
+      p.vx *= damping;
+      p.vy *= damping;
     });
   }
 }
 
-function selectedEdge() {
-  return state.data && state.data.edges.find((edge) => edge.id === state.selected);
-}
-
 function edgeReason(edge) {
-  if (state.metric === "raw") {
-    return `direct rank ${metricRank(edge, "raw") || "-"}`;
-  }
+  if (state.metric === "raw") return `direct rank ${edgeRank(edge, "raw") || "-"}`;
   if (state.metric === "wiper1") {
     if (!edge.wiper1) return "no WIPER1 score";
     const ext = edge.wiper1.extended ? "novel candidate" : "input edge";
@@ -175,28 +244,33 @@ function edgeReason(edge) {
 
 function drawNetwork() {
   if (!state.data) return;
-  ensureLayout();
+  const nodeIds = activeNodeIds();
+  const edgeIds = activeEdgeIds(nodeIds);
+  ensureLayout(nodeIds, edgeIds);
   els.svg.replaceChildren();
-  const active = new Set(activeEdges().map((edge) => edge.id));
-  const [min, max] = scoreRange(state.data.edges);
+
+  const nodes = state.data.nodes.filter((node) => nodeIds.has(node.id));
+  const edges = state.data.edges.filter((edge) => edgeIds.has(edge.id));
+  const [edgeMin, edgeMax] = range(edges, scaledEdgeValue);
+  const [nodeMin, nodeMax] = range(nodes, nodeValue);
 
   const edgeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
   const nodeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
   els.svg.append(edgeLayer, nodeLayer);
 
-  state.data.edges.forEach((edge) => {
+  edges.forEach((edge) => {
     const a = state.positions.get(edge.source);
     const b = state.positions.get(edge.target);
     if (!a || !b) return;
-    const value = metricValue(edge);
+    const t = normalize(scaledEdgeValue(edge), edgeMin, edgeMax);
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
     line.setAttribute("x1", a.x);
     line.setAttribute("y1", a.y);
     line.setAttribute("x2", b.x);
     line.setAttribute("y2", b.y);
-    line.setAttribute("stroke", colorFor(value, min, max));
-    line.setAttribute("stroke-width", String(1.6 + 7 * ((value || 0) - min) / (max - min || 1)));
-    line.setAttribute("class", `edge ${active.has(edge.id) ? "" : "dim"} ${edge.id === state.selected ? "selected" : ""}`);
+    line.setAttribute("stroke", colorFor(t));
+    line.setAttribute("stroke-width", String(1.2 + 9.5 * t));
+    line.setAttribute("class", `edge ${edge.id === state.selected ? "selected" : ""}`);
     line.addEventListener("click", () => {
       state.selected = edge.id;
       render();
@@ -205,20 +279,26 @@ function drawNetwork() {
   });
 
   const selected = selectedEdge();
-  state.data.nodes.forEach((node) => {
+  nodes.forEach((node) => {
     const p = state.positions.get(node.id);
+    const t = normalize(nodeValue(node), nodeMin, nodeMax);
+    const radius = 7 + 19 * Math.sqrt(t);
     const activeNode = selected && (selected.source === node.id || selected.target === node.id);
     const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
     const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     circle.setAttribute("cx", p.x);
     circle.setAttribute("cy", p.y);
-    circle.setAttribute("r", activeNode ? 12 : 9);
+    circle.setAttribute("r", activeNode ? radius + 3 : radius);
+    circle.setAttribute("fill", colorFor(t));
     circle.setAttribute("class", `node ${activeNode ? "active" : ""}`);
     const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    label.setAttribute("x", p.x + 12);
+    label.setAttribute("x", p.x + radius + 5);
     label.setAttribute("y", p.y + 4);
     label.setAttribute("class", "nodeLabel");
     label.textContent = node.id;
+    const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+    title.textContent = `${node.id}: WINNER ${fmt(node.winner)} rank ${node.rank}`;
+    circle.appendChild(title);
     group.append(circle, label);
     nodeLayer.appendChild(group);
   });
@@ -226,15 +306,16 @@ function drawNetwork() {
 
 function renderTable() {
   if (!state.data) return;
-  const active = new Set(activeEdges().map((edge) => edge.id));
+  const nodeIds = activeNodeIds();
+  const edgeIds = activeEdgeIds(nodeIds);
   const needle = els.filter.value.trim().toLowerCase();
   const edges = [...state.data.edges]
     .filter((edge) => !needle || edge.id.toLowerCase().replace("\t", "-").includes(needle))
     .sort((a, b) => {
-      const av = metricValue(a);
-      const bv = metricValue(b);
-      if (av === null || av === undefined) return 1;
-      if (bv === null || bv === undefined) return -1;
+      const av = scaledEdgeValue(a);
+      const bv = scaledEdgeValue(b);
+      if (av === null || av === undefined || !Number.isFinite(av)) return 1;
+      if (bv === null || bv === undefined || !Number.isFinite(bv)) return -1;
       return bv - av;
     });
   els.rows.replaceChildren();
@@ -247,7 +328,7 @@ function renderTable() {
     });
     const edgeName = edge.id.replace("\t", "-");
     row.innerHTML = `
-      <td><strong>${edgeName}</strong><br>${active.has(edge.id) ? '<span class="badge">shown</span>' : '<span class="rank">hidden</span>'}</td>
+      <td><strong>${edgeName}</strong><br>${edgeIds.has(edge.id) ? '<span class="badge">shown</span>' : '<span class="rank">hidden</span>'}</td>
       <td>${fmt(edge.rawWeight)}<br><span class="rank">#${edge.rawRank || "-"}</span></td>
       <td>${fmt(edge.wiper1 && edge.wiper1.score)}<br><span class="rank">#${(edge.wiper1 && edge.wiper1.rank) || "-"}</span></td>
       <td>${fmt(edge.wiper2 && edge.wiper2.score)}<br><span class="rank">#${(edge.wiper2 && edge.wiper2.rank) || "-"}</span></td>
@@ -263,16 +344,20 @@ function renderSelected() {
     els.selected.textContent = "None";
     return;
   }
-  const shown = new Set(activeEdges().map((e) => e.id)).has(edge.id) ? "Yes" : "No";
+  const nodeMap = new Map(state.data.nodes.map((node) => [node.id, node]));
+  const nodeIds = activeNodeIds();
+  const shown = activeEdgeIds(nodeIds).has(edge.id) ? "Yes" : "No";
+  const source = nodeMap.get(edge.source);
+  const target = nodeMap.get(edge.target);
   const lines = [
     ["Edge", edge.id.replace("\t", "-")],
     ["Raw weight", fmt(edge.rawWeight)],
     ["WIPER1 score", fmt(edge.wiper1 && edge.wiper1.score)],
-    ["WIPER1 p", fmt(edge.wiper1 && edge.wiper1.pvalue, 4)],
     ["WIPER2 score", fmt(edge.wiper2 && edge.wiper2.score)],
-    ["WIPER2 p", fmt(edge.wiper2 && edge.wiper2.pvalue, 4)],
     ["Path load", fmt(edge.wiper2 && edge.wiper2.pathLoad)],
-    ["Backbone", shown],
+    [`${edge.source} WINNER`, source ? `${fmt(source.winner)} (#${source.rank})` : "-"],
+    [`${edge.target} WINNER`, target ? `${fmt(target.winner)} (#${target.rank})` : "-"],
+    ["Shown", shown],
   ];
   els.selected.replaceChildren();
   lines.forEach(([label, value]) => {
@@ -286,8 +371,9 @@ function renderSelected() {
 function render() {
   if (!state.data) return;
   const s = state.data.summary;
-  const shown = activeEdges().length;
-  els.summary.textContent = `${s.nodeCount} nodes, ${s.inputEdgeCount} input edges, ${shown} shown, ${s.iterations} iterations`;
+  const nodeIds = activeNodeIds();
+  const edgeIds = activeEdgeIds(nodeIds);
+  els.summary.textContent = `${nodeIds.size}/${s.nodeCount} nodes, ${edgeIds.size}/${s.inputEdgeCount} edges shown, ${s.iterations} iterations`;
   drawNetwork();
   renderTable();
   renderSelected();
@@ -314,12 +400,14 @@ async function analyze() {
     return;
   }
   state.data = result;
+  state.positions = new Map();
+  state.layoutSignature = "";
   state.selected = result.edges[0] && result.edges[0].id;
   render();
 }
 
 function makeRandom() {
-  const count = 10 + Math.floor(Math.random() * 5);
+  const count = 10 + Math.floor(Math.random() * 6);
   const nodes = Array.from({ length: count }, (_, i) => `N${i + 1}`);
   const edges = [];
   const add = (a, b, w) => {
@@ -328,9 +416,7 @@ function makeRandom() {
     if (edges.some((e) => [e[0], e[1]].sort().join("\t") === key)) return;
     edges.push([a, b, Math.max(0.05, Math.min(0.98, w))]);
   };
-  for (let i = 0; i < count - 1; i += 1) {
-    add(nodes[i], nodes[i + 1], 0.72 + Math.random() * 0.24);
-  }
+  for (let i = 0; i < count - 1; i += 1) add(nodes[i], nodes[i + 1], 0.72 + Math.random() * 0.24);
   for (let i = 0; i < count; i += 1) {
     for (let j = i + 2; j < count; j += 1) {
       const sameZone = Math.floor(i / 4) === Math.floor(j / 4);
@@ -342,21 +428,22 @@ function makeRandom() {
   analyze();
 }
 
-document.getElementById("metricSegments").addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-metric]");
-  if (!button) return;
-  state.metric = button.dataset.metric;
-  document.querySelectorAll("#metricSegments button").forEach((b) => b.classList.toggle("active", b === button));
-  render();
-});
+function bindSegments(id, stateKey, dataKey) {
+  document.getElementById(id).addEventListener("click", (event) => {
+    const button = event.target.closest(`button[${dataKey}]`);
+    if (!button) return;
+    state[stateKey] = button.getAttribute(dataKey);
+    document.querySelectorAll(`#${id} button`).forEach((b) => b.classList.toggle("active", b === button));
+    state.layoutSignature = "";
+    render();
+  });
+}
 
-document.getElementById("backboneSegments").addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-mode]");
-  if (!button) return;
-  state.backbone = button.dataset.mode;
-  document.querySelectorAll("#backboneSegments button").forEach((b) => b.classList.toggle("active", b === button));
-  render();
-});
+bindSegments("metricSegments", "metric", "data-metric");
+bindSegments("edgeScaleSegments", "edgeScale", "data-scale");
+bindSegments("nodeScaleSegments", "nodeScale", "data-scale");
+bindSegments("edgeFilterSegments", "edgeFilter", "data-mode");
+bindSegments("nodeFilterSegments", "nodeFilter", "data-mode");
 
 els.analyze.addEventListener("click", analyze);
 els.sample.addEventListener("click", () => {
@@ -365,8 +452,17 @@ els.sample.addEventListener("click", () => {
 });
 els.random.addEventListener("click", makeRandom);
 els.filter.addEventListener("input", renderTable);
-els.topN.addEventListener("input", render);
-els.topPercent.addEventListener("input", render);
+[
+  els.edgeTopN,
+  els.edgeTopPercent,
+  els.edgeThreshold,
+  els.nodeTopN,
+  els.nodeTopPercent,
+  els.nodeThreshold,
+].forEach((input) => input.addEventListener("input", () => {
+  state.layoutSignature = "";
+  render();
+}));
 els.includeNovel.addEventListener("change", analyze);
 els.fileInput.addEventListener("change", async () => {
   const file = els.fileInput.files && els.fileInput.files[0];

@@ -61,6 +61,7 @@ h1 {
 .toolbar,
 .segments,
 .grid2,
+.grid3,
 .tableHeader {
   display: flex;
   gap: 8px;
@@ -155,13 +156,19 @@ select {
   background: #fff;
 }
 
-.grid2 {
+.grid2,
+.grid3 {
   align-items: end;
 }
 
-.grid2 label {
+.grid2 label,
+.grid3 label {
   flex: 1;
   margin-bottom: 0;
+}
+
+.grid3 label {
+  min-width: 0;
 }
 
 .check {
@@ -188,6 +195,11 @@ select {
 .segments button {
   flex: 1;
   min-width: 72px;
+}
+
+.segments.mini button {
+  min-width: 82px;
+  padding-block: 6px;
 }
 
 .selected {
@@ -242,14 +254,13 @@ select {
 }
 
 .node {
-  fill: #fff;
   stroke: #334155;
   stroke-width: 2;
 }
 
 .node.active {
-  fill: #fef3c7;
   stroke: var(--amber);
+  stroke-width: 3;
 }
 
 .nodeLabel {

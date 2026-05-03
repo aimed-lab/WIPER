@@ -33,6 +33,7 @@ def test_analyze_edges_text_returns_visualization_payload():
     )
     assert payload["summary"]["nodeCount"] == 3
     assert payload["summary"]["inputEdgeCount"] == 3
+    assert {"winner", "logWinner", "rank"}.issubset(payload["nodes"][0])
     assert len(payload["edges"]) == 3
     first = payload["edges"][0]
     assert {"rawWeight", "wiper1", "wiper2"}.issubset(first)
