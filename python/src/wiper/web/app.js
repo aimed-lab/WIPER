@@ -25,6 +25,7 @@ const state = {
   nodeSizeMode: "relative",
   generatorModel: "random",
   resultTab: "edges",
+  sidebarCollapsed: false,
   edgeFilter: "all",
   nodeFilter: "all",
   selected: null,
@@ -71,6 +72,13 @@ const els = {
   exportEdges: document.getElementById("exportEdgesBtn"),
   exportNodes: document.getElementById("exportNodesBtn"),
   exportShown: document.getElementById("exportShownBtn"),
+  leftPane: document.getElementById("leftPane"),
+  sidebarToggle: document.getElementById("sidebarToggleBtn"),
+  leftResize: document.getElementById("leftResizeHandle"),
+  agentResize: document.getElementById("agentResizeHandle"),
+  resultsResize: document.getElementById("resultsResizeHandle"),
+  agentPanel: document.querySelector(".agentPanel"),
+  resultsPanel: document.querySelector(".resultsPanel"),
 };
 
 function apiUrl(path) {
@@ -901,6 +909,83 @@ function setSegment(id, stateKey, value, dataKey) {
   });
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function setCssPxVar(name, value) {
+  document.documentElement.style.setProperty(name, `${Math.round(value)}px`);
+}
+
+function setupDrag(handle, onMove) {
+  if (!handle) return;
+  handle.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    handle.classList.add("dragging");
+    document.body.classList.add("isResizing");
+    handle.setPointerCapture(event.pointerId);
+    const move = (moveEvent) => {
+      onMove(moveEvent.clientX - startX, moveEvent.clientY - startY);
+    };
+    const end = () => {
+      handle.classList.remove("dragging");
+      document.body.classList.remove("isResizing");
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  });
+}
+
+function setupResizablePanels() {
+  let sidebarStart = 318;
+  let agentStart = 292;
+  let resultsStart = 260;
+  setupDrag(els.leftResize, (dx) => {
+    if (state.sidebarCollapsed) {
+      state.sidebarCollapsed = false;
+      document.body.classList.remove("sidebarCollapsed");
+      els.sidebarToggle.textContent = "Input";
+      sidebarStart = 260;
+    }
+    setCssPxVar("--sidebar-width", clamp(sidebarStart + dx, 180, 520));
+  });
+  els.leftResize && els.leftResize.addEventListener("pointerdown", () => {
+    sidebarStart = state.sidebarCollapsed ? 46 : els.leftPane.getBoundingClientRect().width;
+  });
+
+  setupDrag(els.agentResize, (dx) => {
+    setCssPxVar("--agent-width", clamp(agentStart - dx, 220, 560));
+  });
+  els.agentResize && els.agentResize.addEventListener("pointerdown", () => {
+    agentStart = els.agentPanel.getBoundingClientRect().width;
+  });
+
+  setupDrag(els.resultsResize, (_dx, dy) => {
+    const maxHeight = Math.max(180, window.innerHeight - 240);
+    setCssPxVar("--results-height", clamp(resultsStart - dy, 170, maxHeight));
+  });
+  els.resultsResize && els.resultsResize.addEventListener("pointerdown", () => {
+    resultsStart = els.resultsPanel.getBoundingClientRect().height;
+  });
+
+  els.sidebarToggle.addEventListener("click", () => {
+    state.sidebarCollapsed = !state.sidebarCollapsed;
+    document.body.classList.toggle("sidebarCollapsed", state.sidebarCollapsed);
+    els.sidebarToggle.textContent = state.sidebarCollapsed ? "Input" : "Input";
+    if (!state.sidebarCollapsed) {
+      setCssPxVar("--sidebar-width", Math.max(240, Number.parseFloat(getComputedStyle(els.leftPane).width) || 318));
+    }
+    state.layoutSignature = "";
+    render();
+  });
+}
+
 function applyChatInstruction() {
   const text = (els.chatInput.value || "").trim();
   if (!text) return;
@@ -1010,6 +1095,7 @@ bindSegments("nodeSizeModeSegments", "nodeSizeMode", "data-size-mode");
 bindSegments("generatorModelSegments", "generatorModel", "data-generator");
 bindSegments("edgeFilterSegments", "edgeFilter", "data-mode");
 bindSegments("nodeFilterSegments", "nodeFilter", "data-mode");
+setupResizablePanels();
 
 document.getElementById("resultTabs").addEventListener("click", (event) => {
   const button = event.target.closest("button[data-tab]");

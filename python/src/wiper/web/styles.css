@@ -11,6 +11,9 @@
   --amber: #b45309;
   --rose: #be123c;
   --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --sidebar-width: 318px;
+  --agent-width: 292px;
+  --results-height: 260px;
 }
 
 * {
@@ -24,6 +27,10 @@ body {
   background: var(--bg);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
+}
+
+body.isResizing {
+  user-select: none;
 }
 
 button,
@@ -97,8 +104,8 @@ button.primary,
 .workspace {
   height: calc(100vh - 76px);
   display: grid;
-  grid-template-columns: minmax(280px, 330px) minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: var(--sidebar-width) 8px minmax(0, 1fr);
+  gap: 0;
   padding: 12px;
 }
 
@@ -116,19 +123,95 @@ button.primary,
   overflow: auto;
 }
 
+body.sidebarCollapsed {
+  --sidebar-width: 46px;
+}
+
+.sidebarToggle {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  width: 100%;
+  margin-bottom: 12px;
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 800;
+}
+
+body.sidebarCollapsed .controls {
+  padding: 8px 6px;
+  overflow: hidden;
+}
+
+body.sidebarCollapsed .controls .controlBlock {
+  display: none;
+}
+
+body.sidebarCollapsed .sidebarToggle {
+  writing-mode: vertical-rl;
+  min-height: 96px;
+  padding: 10px 6px;
+}
+
+.resizeHandle {
+  position: relative;
+  z-index: 4;
+  background: transparent;
+  border-radius: 999px;
+}
+
+.resizeHandle::after {
+  content: "";
+  position: absolute;
+  background: #bfd0dd;
+  opacity: 0.85;
+  transition: background 120ms ease, opacity 120ms ease;
+}
+
+.resizeHandle:hover::after,
+.resizeHandle.dragging::after {
+  background: var(--teal);
+  opacity: 1;
+}
+
+.resizeHandleVertical {
+  cursor: col-resize;
+  margin: 0 4px;
+}
+
+.resizeHandleVertical::after {
+  top: 12px;
+  bottom: 12px;
+  left: 3px;
+  width: 2px;
+}
+
+.resizeHandleHorizontal {
+  cursor: row-resize;
+  margin: 4px 0;
+}
+
+.resizeHandleHorizontal::after {
+  left: 12px;
+  right: 12px;
+  top: 3px;
+  height: 2px;
+}
+
 .workbench {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(440px, 1fr) minmax(230px, 34vh);
-  gap: 12px;
+  grid-template-rows: minmax(360px, 1fr) 8px var(--results-height);
+  gap: 0;
 }
 
 .explorerGrid {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 8px var(--agent-width);
+  gap: 0;
 }
 
 .explorerPanel,
@@ -410,24 +493,26 @@ select {
 .edgeLegend,
 .sizeLegend {
   position: absolute;
-  bottom: 12px;
+  top: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 9px 10px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  padding: 7px 8px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
   color: var(--ink);
-  font-size: 11px;
+  font-size: 10px;
+  pointer-events: none;
+  backdrop-filter: blur(3px);
 }
 
 .edgeLegend {
-  left: 12px;
-  width: 238px;
+  left: 10px;
+  width: 164px;
 }
 
 .sizeLegend {
-  right: 12px;
-  width: 208px;
+  right: 10px;
+  width: 150px;
 }
 
 .legendTitle {
@@ -443,11 +528,11 @@ select {
 }
 
 .edgeLegend svg {
-  height: 48px;
+  height: 28px;
 }
 
 .sizeLegend svg {
-  height: 58px;
+  height: 32px;
 }
 
 .legendNode {
@@ -745,12 +830,16 @@ select {
 
 @media (max-width: 1180px) {
   .workspace {
-    grid-template-columns: minmax(250px, 310px) 1fr;
+    grid-template-columns: minmax(230px, var(--sidebar-width)) 8px 1fr;
   }
 
   .explorerGrid {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(420px, 1fr) 260px;
+    grid-template-rows: minmax(420px, 1fr) 0 var(--agent-width);
+  }
+
+  #agentResizeHandle {
+    display: none;
   }
 
   .filterStrip {
@@ -768,6 +857,11 @@ select {
   .workspace {
     height: auto;
     grid-template-columns: 1fr;
+  }
+
+  #leftResizeHandle,
+  #resultsResizeHandle {
+    display: none;
   }
 
   .workbench {

@@ -21,8 +21,9 @@
       </div>
     </header>
 
-    <main class="workspace">
-      <aside class="panel controls">
+    <main class="workspace" id="workspace">
+      <aside class="panel controls" id="leftPane">
+        <button id="sidebarToggleBtn" type="button" class="sidebarToggle" aria-label="Collapse input panel">Input</button>
         <section class="controlBlock">
           <span class="blockLabel">Project</span>
           <label>
@@ -95,6 +96,7 @@
           </div>
         </section>
       </aside>
+      <div id="leftResizeHandle" class="resizeHandle resizeHandleVertical" role="separator" aria-orientation="vertical" aria-label="Resize input panel"></div>
 
       <section class="workbench">
         <section class="explorerGrid">
@@ -169,6 +171,7 @@
               <div id="graphTooltip" class="graphTooltip" hidden></div>
             </div>
           </section>
+          <div id="agentResizeHandle" class="resizeHandle resizeHandleVertical" role="separator" aria-orientation="vertical" aria-label="Resize agent panel"></div>
 
           <aside class="panel agentPanel">
             <div class="agentHeader">
@@ -182,6 +185,7 @@
             </div>
           </aside>
         </section>
+        <div id="resultsResizeHandle" class="resizeHandle resizeHandleHorizontal" role="separator" aria-orientation="horizontal" aria-label="Resize results panel"></div>
 
         <section class="panel resultsPanel">
           <div class="resultsHeader">
