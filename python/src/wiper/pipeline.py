@@ -255,6 +255,8 @@ def run_path_wiper(
     tie_tolerance: float = 1e-12,
     max_paths_per_pair: int = 1024,
     device: Device = "auto",
+    n_jobs: int = -1,
+    source_chunk_size: int | None = None,
 ) -> WiperResult:
     """Run path-aware WIPER.
 
@@ -290,6 +292,8 @@ def run_path_wiper(
         share_mode=share_mode,
         tie_tolerance=tie_tolerance,
         max_paths_per_pair=max_paths_per_pair,
+        n_jobs=n_jobs,
+        source_chunk_size=source_chunk_size,
     )
     if initial_score == "winner":
         w0 = winner_initial_score(matrices.edge_graph, matrices.path_load)
@@ -343,6 +347,8 @@ def run_wiper2(
     tie_tolerance: float = 1e-12,
     max_paths_per_pair: int = 1024,
     device: Device = "auto",
+    n_jobs: int = -1,
+    source_chunk_size: int | None = None,
 ) -> WiperResult:
     """Run WIPER2, the shortest-path-flow/WINNER-style edge algorithm."""
     return run_path_wiper(
@@ -355,6 +361,8 @@ def run_wiper2(
         tie_tolerance=tie_tolerance,
         max_paths_per_pair=max_paths_per_pair,
         device=device,
+        n_jobs=n_jobs,
+        source_chunk_size=source_chunk_size,
     )
 
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from heapq import heappop, heappush
+import os
 from typing import Literal
 
 import numpy as np
@@ -116,6 +117,72 @@ def _enumerate_paths(
     return paths
 
 
+def _pair_column(source: int, target: int, n: int) -> int:
+    """Return the zero-based upper-triangle column for ``source < target``."""
+    return source * (2 * n - source - 1) // 2 + (target - source - 1)
+
+
+def _effective_n_jobs(n_jobs: int) -> int:
+    if n_jobs == 0:
+        return 1
+    if n_jobs < 0:
+        return max(1, (os.cpu_count() or 1) + 1 + n_jobs)
+    return n_jobs
+
+
+def _source_path_credit_chunk(
+    graph: list[list[tuple[int, float, int]]],
+    d: np.ndarray,
+    share_values: np.ndarray,
+    n: int,
+    source_start: int,
+    source_stop: int,
+    pair_weight: PairWeight,
+    tie_tolerance: float,
+    max_paths_per_pair: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, int]:
+    rows: list[int] = []
+    cols: list[int] = []
+    data: list[float] = []
+    reachable = 0
+
+    for source in range(source_start, source_stop):
+        dist, pred = _dijkstra_all_predecessors(graph, source, tie_tolerance=tie_tolerance)
+        for target in range(source + 1, n):
+            if not np.isfinite(dist[target]):
+                continue
+            paths = _enumerate_paths(
+                pred, source, target, max_paths=max_paths_per_pair
+            )
+            if not paths:
+                continue
+            reachable += 1
+            credit = 1.0 if pair_weight == "uniform" else float(d[source, target])
+            per_path_credit = credit / len(paths)
+            edge_credit: dict[int, float] = {}
+            for path in paths:
+                denom = float(np.sum(share_values[path]))
+                if denom <= 0 or not np.isfinite(denom):
+                    continue
+                for edge_idx in path:
+                    edge_credit[edge_idx] = edge_credit.get(edge_idx, 0.0) + (
+                        per_path_credit * float(share_values[edge_idx]) / denom
+                    )
+            col = _pair_column(source, target, n)
+            for edge_idx, value in edge_credit.items():
+                if value > 0:
+                    rows.append(edge_idx)
+                    cols.append(col)
+                    data.append(value)
+
+    return (
+        np.asarray(rows, dtype=np.int64),
+        np.asarray(cols, dtype=np.int64),
+        np.asarray(data, dtype=np.float64),
+        reachable,
+    )
+
+
 def path_usage_matrix(
     adj: np.ndarray,
     *,
@@ -124,12 +191,20 @@ def path_usage_matrix(
     share_mode: ShareMode = "strength",
     tie_tolerance: float = 1e-12,
     max_paths_per_pair: int = 1024,
+    n_jobs: int = 1,
+    source_chunk_size: int | None = None,
 ) -> PathFlowMatrices:
     """Build the edge-by-node-pair shortest-path credit matrix ``WP``.
 
     Tied shortest paths are split equally. If a pair has more than
     ``max_paths_per_pair`` tied paths, a ``RuntimeError`` is raised so callers
     do not silently get arbitrary path credit.
+
+    CPU parallelism is source-wise: different workers run Dijkstra and path
+    credit construction for disjoint source-node blocks. This is the dominant
+    WIPER2 cost on medium and large networks, so ``n_jobs=-1`` can materially
+    reduce wall time when the graph is large enough to amortize process
+    scheduling and serialization.
     """
     if pair_weight not in ("uniform", "path_strength"):
         raise ValueError("pair_weight must be 'uniform' or 'path_strength'")
@@ -149,44 +224,70 @@ def path_usage_matrix(
     costs = -np.log(np.clip(edges.strength, np.finfo(np.float64).tiny, upper))
     share_values = edges.strength if share_mode == "strength" else costs
 
-    rows: list[int] = []
-    cols: list[int] = []
-    data: list[float] = []
-    col = 0
-    for source in range(n):
-        dist, pred = _dijkstra_all_predecessors(graph, source, tie_tolerance=tie_tolerance)
-        for target in range(source + 1, n):
-            if not np.isfinite(dist[target]):
-                continue
-            paths = _enumerate_paths(
-                pred, source, target, max_paths=max_paths_per_pair
-            )
-            if not paths:
-                continue
-            credit = 1.0 if pair_weight == "uniform" else float(d[source, target])
-            per_path_credit = credit / len(paths)
-            edge_credit: dict[int, float] = {}
-            for path in paths:
-                denom = float(np.sum(share_values[path]))
-                if denom <= 0 or not np.isfinite(denom):
-                    continue
-                for edge_idx in path:
-                    edge_credit[edge_idx] = edge_credit.get(edge_idx, 0.0) + (
-                        per_path_credit * float(share_values[edge_idx]) / denom
-                    )
-            for edge_idx, value in edge_credit.items():
-                if value > 0:
-                    rows.append(edge_idx)
-                    cols.append(col)
-                    data.append(value)
-            col += 1
+    jobs = _effective_n_jobs(n_jobs)
+    if source_chunk_size is None:
+        source_chunk_size = max(1, n // max(1, jobs * 4))
+    if source_chunk_size <= 0:
+        raise ValueError("source_chunk_size must be positive")
+    chunks = [(start, min(n, start + source_chunk_size)) for start in range(0, n, source_chunk_size)]
 
-    wp = coo_matrix((data, (rows, cols)), shape=(edges.size, col), dtype=np.float64).tocsr()
+    if jobs == 1 or len(chunks) == 1:
+        parts = [
+            _source_path_credit_chunk(
+                graph,
+                d,
+                share_values,
+                n,
+                start,
+                stop,
+                pair_weight,
+                tie_tolerance,
+                max_paths_per_pair,
+            )
+            for start, stop in chunks
+        ]
+    else:
+        from joblib import Parallel, delayed
+
+        tasks = [
+            delayed(_source_path_credit_chunk)(
+                graph,
+                d,
+                share_values,
+                n,
+                start,
+                stop,
+                pair_weight,
+                tie_tolerance,
+                max_paths_per_pair,
+            )
+            for start, stop in chunks
+        ]
+        try:
+            parts = Parallel(n_jobs=jobs, prefer="processes")(tasks)
+        except (OSError, NotImplementedError):
+            parts = Parallel(n_jobs=jobs, backend="threading")(tasks)
+
+    reachable = int(sum(part[3] for part in parts))
+    nonempty = [part for part in parts if part[0].size]
+    if nonempty:
+        rows = np.concatenate([part[0] for part in nonempty])
+        pair_cols = np.concatenate([part[1] for part in nonempty])
+        data = np.concatenate([part[2] for part in nonempty])
+        used_cols, cols = np.unique(pair_cols, return_inverse=True)
+        pair_count = int(used_cols.size)
+    else:
+        rows = np.array([], dtype=np.int64)
+        cols = np.array([], dtype=np.int64)
+        data = np.array([], dtype=np.float64)
+        pair_count = 0
+
+    wp = coo_matrix((data, (rows, cols)), shape=(edges.size, pair_count), dtype=np.float64).tocsr()
     edge_graph = (wp @ wp.T).tocsr()
     edge_graph.setdiag(0.0)
     edge_graph.eliminate_zeros()
     path_load = np.asarray(wp.sum(axis=1)).ravel().astype(np.float64)
-    return PathFlowMatrices(edges, wp, edge_graph, path_load, col)
+    return PathFlowMatrices(edges, wp, edge_graph, path_load, reachable)
 
 
 def winner_initial_score(edge_graph: csr_matrix, path_load: np.ndarray) -> np.ndarray:

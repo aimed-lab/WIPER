@@ -49,7 +49,7 @@ path_result = run_wiper2(interactions, sigma=0.85, iterations=200)
 ```
 
 See [`python/README.md`](python/README.md) for implementation details,
-performance notes, and test commands.
+parallel CPU/GPU performance notes, and test commands.
 
 ## Algorithm Variants
 
@@ -72,3 +72,18 @@ Dr. Jake Chen or another authorized copyright holder. See
 The web explorer (`wiper-web`) runs a local browser-facing tool for loading or
 generating small networks, toggling raw/WIPER1/WIPER2 edge scores, inspecting
 rank tables, and trimming the plot to a top-N or top-percent backbone.
+
+## WIPER2 Performance
+
+WIPER2 parallelizes the expensive shortest-path edge-credit construction over
+source-node blocks with joblib process workers (`--n-jobs -1` uses all detected
+CPU cores). The final WINNER-style restart phase can dispatch to PyTorch CUDA
+or Apple MPS when available, although the current benchmark machine exposed
+only CPU.
+
+On an Apple M4 with 10 detected CPU cores, a synthetic 300-node / 900-edge
+scale-free network improved from 1.33 s with one worker to 0.57 s with 10
+workers for a full 200-iteration WIPER2 run. See
+[`python/README.md`](python/README.md) and
+[`python/benchmarks/benchmark_wiper2.py`](python/benchmarks/benchmark_wiper2.py)
+for the detailed table and reproducible benchmark command.

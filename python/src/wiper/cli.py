@@ -54,8 +54,14 @@ def build_parser() -> argparse.ArgumentParser:
         default="auto",
         help="Computation device for WIPER iteration",
     )
-    parser.add_argument("--n-jobs", type=int, default=-1, help="CPU workers for X construction")
+    parser.add_argument("--n-jobs", type=int, default=-1, help="CPU workers for WIPER1 X or WIPER2 path-flow construction")
     parser.add_argument("--chunk-size", type=int, default=1000, help="Rows per X construction chunk")
+    parser.add_argument(
+        "--source-chunk-size",
+        type=int,
+        default=None,
+        help="WIPER2 only: source nodes per CPU path-flow worker chunk",
+    )
     parser.add_argument(
         "--pair-weight",
         choices=["uniform", "path_strength"],
@@ -105,6 +111,8 @@ def main(argv: list[str] | None = None) -> int:
             initial_score=args.initial_score,
             max_paths_per_pair=args.max_paths_per_pair,
             device=args.device,
+            n_jobs=args.n_jobs,
+            source_chunk_size=args.source_chunk_size,
         )
     else:
         sigma = 0.2 if args.sigma is None else args.sigma
