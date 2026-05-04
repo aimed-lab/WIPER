@@ -1,6 +1,6 @@
 WIPER2 Non-Commercial Research and Education License
 
-Copyright (c) 2026 Jake Y. Chen and AIMed Lab, UAB.
+Copyright (c) 2026 Dr. Jake Chen.
 
 This license applies to the WIPER2 path-aware edge-ranking algorithm
 implementation, including the `run_wiper2` Python API, the WIPER2 CLI mode,
@@ -17,8 +17,8 @@ platform, paid consulting engagement, revenue-generating workflow, commercial
 research and development program, or other activity intended to produce
 commercial advantage or monetary compensation.
 
-Commercial use requires a separate written license granted by Jake Y. Chen,
-AIMed Lab, UAB, or another authorized copyright holder.
+Commercial use requires a separate written license granted by Dr. Jake Chen or
+another authorized copyright holder.
 
 Redistributions, modified versions, and derivative works permitted under this
 license must retain this copyright notice, this license text, and a clear

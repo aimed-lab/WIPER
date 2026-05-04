@@ -62,7 +62,7 @@ aliases for `wiper1` and `wiper2`.
 
 WIPER2 is free for non-commercial research, education, evaluation, and
 academic use. Commercial use requires a separate written license granted by
-Jake Y. Chen, AIMed Lab, UAB, or another authorized copyright holder. See
+Dr. Jake Chen or another authorized copyright holder. See
 [`LICENSE-WIPER2-NONCOMMERCIAL.md`](LICENSE-WIPER2-NONCOMMERCIAL.md).
 
 ## Web Explorer

@@ -66,7 +66,7 @@ network flow?"
 
 WIPER2 is free for non-commercial research, education, evaluation, and
 academic use. Commercial use requires a separate written license granted by
-Jake Y. Chen, AIMed Lab, UAB, or another authorized copyright holder. See
+Dr. Jake Chen or another authorized copyright holder. See
 [`LICENSE-WIPER2-NONCOMMERCIAL.md`](LICENSE-WIPER2-NONCOMMERCIAL.md).
 
 The web explorer (`wiper-web`) runs a local browser-facing tool for loading or
