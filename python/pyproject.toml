@@ -18,13 +18,14 @@ authors = [
 maintainers = [
     {name = "Jake Y. Chen", email = "jakechen@uab.edu"},
 ]
-license = {text = "MIT"}
+license = {text = "MIT for WIPER1 portions; WIPER2 non-commercial research and education use; see LICENSE and LICENSE-WIPER2-NONCOMMERCIAL.md"}
 keywords = ["network biology", "edge ranking", "WIPER", "bioinformatics", "PPI"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "License :: Other/Proprietary License",
 ]
 dependencies = [
     "numpy>=1.22",

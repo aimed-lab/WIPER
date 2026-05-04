@@ -64,6 +64,11 @@ WINNER-style restart propagation over that edge graph. This is often the more
 direct model if the scientific question is "which associations carry optimal
 network flow?"
 
+WIPER2 is free for non-commercial research, education, evaluation, and
+academic use. Commercial use requires a separate written license granted by
+Jake Y. Chen, AIMed Lab, UAB, or another authorized copyright holder. See
+[`LICENSE-WIPER2-NONCOMMERCIAL.md`](LICENSE-WIPER2-NONCOMMERCIAL.md).
+
 The web explorer (`wiper-web`) runs a local browser-facing tool for loading or
 generating small networks, toggling raw/WIPER1/WIPER2 edge scores, inspecting
 rank tables, and trimming the plot to a top-N or top-percent backbone.
