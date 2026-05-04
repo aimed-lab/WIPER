@@ -18,7 +18,7 @@ D\tH\t0.38`;
 
 const state = {
   data: null,
-  metric: "raw",
+  metric: "wiper2",
   edgeMeasure: "ufc",
   edgeScale: "normal",
   nodeScale: "normal",
@@ -26,6 +26,9 @@ const state = {
   generatorModel: "random",
   resultTab: "edges",
   sidebarCollapsed: false,
+  zoom: 1,
+  panX: 0,
+  panY: 0,
   edgeFilter: "all",
   nodeFilter: "all",
   selected: null,
@@ -72,6 +75,14 @@ const els = {
   exportEdges: document.getElementById("exportEdgesBtn"),
   exportNodes: document.getElementById("exportNodesBtn"),
   exportShown: document.getElementById("exportShownBtn"),
+  exportExcel: document.getElementById("exportExcelBtn"),
+  exportMarkdown: document.getElementById("exportMarkdownBtn"),
+  exportWord: document.getElementById("exportWordBtn"),
+  exportFigure: document.getElementById("exportFigureBtn"),
+  networkSettings: document.getElementById("networkSettingsPanel"),
+  networkSettingsBtn: document.getElementById("networkSettingsBtn"),
+  networkSettingsClose: document.getElementById("networkSettingsCloseBtn"),
+  zoomReset: document.getElementById("zoomResetBtn"),
   leftPane: document.getElementById("leftPane"),
   sidebarToggle: document.getElementById("sidebarToggleBtn"),
   leftResize: document.getElementById("leftResizeHandle"),
@@ -536,7 +547,10 @@ function drawNetwork() {
 
   const edgeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
   const nodeLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
-  els.svg.append(edgeLayer, nodeLayer);
+  const viewport = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  viewport.setAttribute("transform", `translate(${state.panX} ${state.panY}) scale(${state.zoom})`);
+  viewport.append(edgeLayer, nodeLayer);
+  els.svg.append(viewport);
 
   edges.forEach((edge) => {
     const a = state.positions.get(edge.source);
@@ -588,6 +602,58 @@ function drawNetwork() {
     group.append(circle, label);
     nodeLayer.appendChild(group);
   });
+}
+
+function svgPointFromEvent(event) {
+  const rect = els.svg.getBoundingClientRect();
+  return {
+    x: ((event.clientX - rect.left) / rect.width) * 900,
+    y: ((event.clientY - rect.top) / rect.height) * 620,
+  };
+}
+
+function resetZoom() {
+  state.zoom = 1;
+  state.panX = 0;
+  state.panY = 0;
+  drawNetwork();
+}
+
+function setupNetworkZoom() {
+  els.svg.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    const point = svgPointFromEvent(event);
+    const previous = state.zoom;
+    const next = clamp(previous * (event.deltaY < 0 ? 1.12 : 0.88), 0.35, 5);
+    const worldX = (point.x - state.panX) / previous;
+    const worldY = (point.y - state.panY) / previous;
+    state.zoom = next;
+    state.panX = point.x - worldX * next;
+    state.panY = point.y - worldY * next;
+    drawNetwork();
+  }, { passive: false });
+
+  let panStart = null;
+  els.svg.addEventListener("pointerdown", (event) => {
+    if (event.target !== els.svg) return;
+    const point = svgPointFromEvent(event);
+    panStart = { x: point.x, y: point.y, panX: state.panX, panY: state.panY };
+    els.svg.setPointerCapture(event.pointerId);
+    els.svg.classList.add("panning");
+  });
+  els.svg.addEventListener("pointermove", (event) => {
+    if (!panStart) return;
+    const point = svgPointFromEvent(event);
+    state.panX = panStart.panX + point.x - panStart.x;
+    state.panY = panStart.panY + point.y - panStart.y;
+    drawNetwork();
+  });
+  const endPan = () => {
+    panStart = null;
+    els.svg.classList.remove("panning");
+  };
+  els.svg.addEventListener("pointerup", endPan);
+  els.svg.addEventListener("pointercancel", endPan);
 }
 
 function renderTable() {
@@ -829,8 +895,8 @@ function rowsToTsv(rows) {
   return rows.map((row) => row.map((value) => value === null || value === undefined ? "" : String(value)).join("\t")).join("\n");
 }
 
-function downloadText(filename, text) {
-  const blob = new Blob([text], { type: "text/tab-separated-values;charset=utf-8" });
+function downloadText(filename, text, type = "text/tab-separated-values;charset=utf-8") {
+  const blob = new Blob([text], { type });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = filename;
@@ -840,7 +906,7 @@ function downloadText(filename, text) {
   link.remove();
 }
 
-function exportEdges() {
+function edgeExportRows() {
   if (!state.data) return;
   const rows = [[
     "nodeA", "nodeB", "rawWeight", "rawRank", "wiper1UFC", "wiper1W", "wiper1Rank",
@@ -861,10 +927,10 @@ function exportEdges() {
     edge.wiper2 && edge.wiper2.pathLoad,
     shown.has(edge.id) ? "Yes" : "No",
   ]));
-  downloadText("spinner_edge_scores.tsv", rowsToTsv(rows));
+  return rows;
 }
 
-function exportNodes() {
+function nodeExportRows() {
   if (!state.data) return;
   const shown = activeNodeIds();
   const rows = [["node", "winner0UFC", "winnerUFC", "winner0W", "winnerW", "degree", "rank", "shown"]];
@@ -878,17 +944,82 @@ function exportNodes() {
     node.rank,
     shown.has(node.id) ? "Yes" : "No",
   ]));
-  downloadText("spinner_node_scores.tsv", rowsToTsv(rows));
+  return rows;
 }
 
-function exportShownNetwork() {
+function shownNetworkRows() {
   if (!state.data) return;
   const shown = activeEdgeIds();
   const rows = [["node1", "node2", "weight", "score"]];
   state.data.edges
     .filter((edge) => shown.has(edge.id))
     .forEach((edge) => rows.push([edge.source, edge.target, edge.rawWeight, edgeValue(edge)]));
-  downloadText("spinner_backbone_network.tsv", rowsToTsv(rows));
+  return rows;
+}
+
+function exportEdges() {
+  downloadText("spinner_edge_scores.tsv", rowsToTsv(edgeExportRows()));
+}
+
+function exportNodes() {
+  downloadText("spinner_node_scores.tsv", rowsToTsv(nodeExportRows()));
+}
+
+function exportShownNetwork() {
+  downloadText("spinner_backbone_network.tsv", rowsToTsv(shownNetworkRows()));
+}
+
+function htmlTable(rows) {
+  return `<table>${rows.map((row, i) => `<tr>${row.map((cell) => `<${i === 0 ? "th" : "td"}>${escapeHtml(cell === null || cell === undefined ? "" : cell)}</${i === 0 ? "th" : "td"}>`).join("")}</tr>`).join("")}</table>`;
+}
+
+function methodSummary() {
+  const s = state.data && state.data.summary;
+  const edgeIds = activeEdgeIds();
+  const nodeIds = activeNodeIds();
+  return [
+    "network SPINNER ranks protein interaction network edges using WIPER1 and WIPER2 edge scoring with WINNER-style node scoring.",
+    `Current view: ${metricLabel()} edge score, ${state.edgeMeasure.toUpperCase()} measure, ${state.edgeScale} scale.`,
+    s ? `The analyzed network contains ${s.nodeCount} nodes and ${s.inputEdgeCount} input edges; ${nodeIds.size} nodes and ${edgeIds.size} edges are visible after filtering.` : "",
+  ].filter(Boolean).join(" ");
+}
+
+function exportExcel() {
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>SPINNER results</title></head><body>
+    <h1>SPINNER results</h1>
+    <h2>Edges</h2>${htmlTable(edgeExportRows())}
+    <h2>Nodes</h2>${htmlTable(nodeExportRows())}
+    <h2>Shown network</h2>${htmlTable(shownNetworkRows())}
+  </body></html>`;
+  downloadText("spinner_results.xls", html, "application/vnd.ms-excel;charset=utf-8");
+}
+
+function exportMarkdown() {
+  const topEdges = edgeExportRows().slice(0, 11);
+  const table = topEdges.map((row) => `| ${row.map((cell) => String(cell ?? "").replaceAll("|", "\\|")).join(" | ")} |`);
+  table.splice(1, 0, `| ${topEdges[0].map(() => "---").join(" | ")} |`);
+  const text = `# SPINNER Results\n\n## Method\n\n${methodSummary()}\n\n## Top Edges\n\n${table.join("\n")}\n`;
+  downloadText("spinner_report.md", text, "text/markdown;charset=utf-8");
+}
+
+function exportWord() {
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>SPINNER method and results</title></head><body>
+    <h1>SPINNER Method and Results</h1>
+    <h2>Method</h2><p>${escapeHtml(methodSummary())}</p>
+    <h2>Edge Results</h2>${htmlTable(edgeExportRows().slice(0, 26))}
+    <h2>Node Results</h2>${htmlTable(nodeExportRows().slice(0, 26))}
+  </body></html>`;
+  downloadText("spinner_method_results.doc", html, "application/msword;charset=utf-8");
+}
+
+function exportFigure() {
+  const clone = els.svg.cloneNode(true);
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  clone.insertAdjacentHTML("afterbegin", `<style>
+    .edge{stroke-linecap:round}.node{stroke:#334155;stroke-width:2}.node.active{stroke:#b45309;stroke-width:3}
+    .nodeLabel{font:700 12px sans-serif;fill:#1f2937;paint-order:stroke;stroke:#fff;stroke-width:4px}
+  </style>`);
+  downloadText("spinner_network_figure.svg", new XMLSerializer().serializeToString(clone), "image/svg+xml;charset=utf-8");
 }
 
 function addChatMessage(role, text) {
@@ -1096,6 +1227,7 @@ bindSegments("generatorModelSegments", "generatorModel", "data-generator");
 bindSegments("edgeFilterSegments", "edgeFilter", "data-mode");
 bindSegments("nodeFilterSegments", "nodeFilter", "data-mode");
 setupResizablePanels();
+setupNetworkZoom();
 
 document.getElementById("resultTabs").addEventListener("click", (event) => {
   const button = event.target.closest("button[data-tab]");
@@ -1112,6 +1244,13 @@ els.sample.addEventListener("click", () => {
 });
 els.random.addEventListener("click", makeRandom);
 els.geneterrain.addEventListener("click", makeGeneterrain);
+els.zoomReset.addEventListener("click", resetZoom);
+els.networkSettingsBtn.addEventListener("click", () => {
+  els.networkSettings.hidden = !els.networkSettings.hidden;
+});
+els.networkSettingsClose.addEventListener("click", () => {
+  els.networkSettings.hidden = true;
+});
 els.filter.addEventListener("input", () => {
   renderTable();
   renderNodesTable();
@@ -1125,6 +1264,10 @@ els.chatInput.addEventListener("keydown", (event) => {
 els.exportEdges.addEventListener("click", exportEdges);
 els.exportNodes.addEventListener("click", exportNodes);
 els.exportShown.addEventListener("click", exportShownNetwork);
+els.exportExcel.addEventListener("click", exportExcel);
+els.exportMarkdown.addEventListener("click", exportMarkdown);
+els.exportWord.addEventListener("click", exportWord);
+els.exportFigure.addEventListener("click", exportFigure);
 [
   els.edgeTopN,
   els.edgeTopPercent,

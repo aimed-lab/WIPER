@@ -24,8 +24,8 @@
     <main class="workspace" id="workspace">
       <aside class="panel controls" id="leftPane">
         <button id="sidebarToggleBtn" type="button" class="sidebarToggle" aria-label="Collapse input panel">Input</button>
-        <section class="controlBlock">
-          <span class="blockLabel">Project</span>
+        <section class="controlBlock railSection">
+          <div class="sectionTitle"><span class="sectionIcon" aria-hidden="true">P</span><span class="blockLabel">Project</span></div>
           <label>
             <span>Name</span>
             <input id="projectNameInput" type="text" value="SPINNER session" />
@@ -40,13 +40,14 @@
           </label>
         </section>
 
-        <section class="controlBlock">
-          <span class="blockLabel">Edge list</span>
+        <section class="controlBlock railSection">
+          <div class="sectionTitle"><span class="sectionIcon" aria-hidden="true">F</span><span class="blockLabel">File upload</span></div>
+          <span class="subLabel">Edge list</span>
           <textarea id="edgeText" spellcheck="false"></textarea>
         </section>
 
-        <section class="controlBlock">
-          <span class="blockLabel">Parameters</span>
+        <section class="controlBlock railSection">
+          <div class="sectionTitle"><span class="sectionIcon" aria-hidden="true">A</span><span class="blockLabel">Parameters</span></div>
           <div class="grid2">
             <label>
               <span>Iterations</span>
@@ -68,8 +69,8 @@
           </label>
         </section>
 
-        <section class="controlBlock">
-          <span class="blockLabel">Generator</span>
+        <section class="controlBlock railSection">
+          <div class="sectionTitle"><span class="sectionIcon" aria-hidden="true">G</span><span class="blockLabel">Generator</span></div>
           <div class="segments" id="generatorModelSegments">
             <button type="button" data-generator="random" class="active">Random</button>
             <button type="button" data-generator="scale-free">Scale-free</button>
@@ -107,23 +108,33 @@
                 <span id="viewSummary">Interactive ranked neighborhood</span>
               </div>
               <div class="compactControls">
-                <div class="segments" id="metricSegments">
-                  <button type="button" data-metric="raw" class="active">Raw</button>
-                  <button type="button" data-metric="wiper1">WIPER1</button>
-                  <button type="button" data-metric="wiper2">WIPER2</button>
-                </div>
-                <div class="segments mini" id="edgeMeasureSegments">
-                  <button type="button" data-measure="ufc" class="active">UFC</button>
-                  <button type="button" data-measure="weight">W</button>
-                </div>
-                <div class="segments mini" id="edgeScaleSegments">
-                  <button type="button" data-scale="normal" class="active">Normal</button>
-                  <button type="button" data-scale="log">Log</button>
-                </div>
+                <button id="zoomResetBtn" type="button" class="iconButton" aria-label="Reset zoom">1:1</button>
+                <button id="networkSettingsBtn" type="button" class="iconButton" aria-label="Network settings">⚙</button>
               </div>
             </div>
 
-            <div class="filterStrip">
+            <div class="settingsPopover" id="networkSettingsPanel" hidden>
+              <div class="settingsHeader">
+                <strong>Network settings</strong>
+                <button id="networkSettingsCloseBtn" type="button" class="iconButton" aria-label="Close settings">x</button>
+              </div>
+              <div class="settingsGrid">
+                <div class="filterGroup">
+                  <span>Edge score</span>
+                  <div class="segments" id="metricSegments">
+                    <button type="button" data-metric="raw">Raw</button>
+                    <button type="button" data-metric="wiper1">WIPER1</button>
+                    <button type="button" data-metric="wiper2" class="active">WIPER2</button>
+                  </div>
+                  <div class="segments mini" id="edgeMeasureSegments">
+                    <button type="button" data-measure="ufc" class="active">UFC</button>
+                    <button type="button" data-measure="weight">W</button>
+                  </div>
+                  <div class="segments mini" id="edgeScaleSegments">
+                    <button type="button" data-scale="normal" class="active">Normal</button>
+                    <button type="button" data-scale="log">Log</button>
+                  </div>
+                </div>
               <div class="filterGroup">
                 <span>Edges</span>
                 <div class="segments mini" id="edgeFilterSegments">
@@ -161,6 +172,7 @@
                 <input id="nodeMinRadiusInput" type="number" min="1" max="40" step="1" value="7" aria-label="Minimum node radius" />
                 <input id="nodeMaxRadiusInput" type="number" min="2" max="80" step="1" value="28" aria-label="Maximum node radius" />
                 <input id="nodeRadiusFoldInput" type="number" min="1" max="20" step="0.5" value="4" aria-label="Relative node radius fold" />
+              </div>
               </div>
             </div>
 
@@ -238,9 +250,19 @@
             </div>
           </div>
           <div class="tabPanel exportPanel" id="exportTab">
-            <button id="exportEdgesBtn" type="button">Export edge scores TSV</button>
-            <button id="exportNodesBtn" type="button">Export node scores TSV</button>
-            <button id="exportShownBtn" type="button">Export shown network TSV</button>
+            <div class="exportGroup">
+              <span class="blockLabel">Tables</span>
+              <button id="exportEdgesBtn" type="button">Export edge scores TSV</button>
+              <button id="exportNodesBtn" type="button">Export node scores TSV</button>
+              <button id="exportShownBtn" type="button">Export shown network TSV</button>
+              <button id="exportExcelBtn" type="button">Export Excel workbook</button>
+            </div>
+            <div class="exportGroup">
+              <span class="blockLabel">Reports</span>
+              <button id="exportMarkdownBtn" type="button">Export Markdown report</button>
+              <button id="exportWordBtn" type="button">Export Word-ready method/results</button>
+              <button id="exportFigureBtn" type="button">Export SVG figure</button>
+            </div>
             <section class="selectedPanel" id="selectedPanel">
               <span class="blockLabel">Selected edge</span>
               <div id="selectedDetails">None</div>

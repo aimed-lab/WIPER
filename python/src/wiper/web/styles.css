@@ -101,6 +101,16 @@ button.primary,
   color: #fff;
 }
 
+.iconButton {
+  min-width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  font-weight: 800;
+}
+
 .workspace {
   height: calc(100vh - 76px);
   display: grid;
@@ -217,6 +227,7 @@ body.sidebarCollapsed .sidebarToggle {
 .explorerPanel,
 .agentPanel,
 .resultsPanel {
+  position: relative;
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -322,6 +333,44 @@ select {
   padding-top: 12px;
 }
 
+.railSection {
+  border-bottom: 1px solid #e6edf5;
+  padding-bottom: 12px;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+
+.sectionTitle .blockLabel {
+  margin: 0;
+}
+
+.sectionIcon {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #e0f2fe;
+  color: #075985;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.subLabel {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 #selectedDetails {
   display: grid;
   gap: 7px;
@@ -375,6 +424,53 @@ select {
 .compactControls .segments button {
   flex: 0 0 auto;
   min-width: 58px;
+}
+
+.settingsPopover {
+  position: absolute;
+  top: 52px;
+  right: 12px;
+  z-index: 10;
+  width: min(760px, calc(100% - 24px));
+  max-height: min(520px, calc(100% - 70px));
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
+}
+
+.settingsHeader {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+}
+
+.settingsGrid {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.settingsGrid .filterGroup {
+  display: grid;
+  grid-template-columns: 78px repeat(6, max-content);
+  align-items: center;
+  justify-content: start;
+  border-bottom: 1px solid #edf2f7;
+  padding-bottom: 10px;
+}
+
+.settingsGrid .filterGroup:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 
 .filterStrip {
@@ -434,11 +530,16 @@ select {
   display: block;
   width: 100%;
   height: 100%;
+  cursor: grab;
   background:
     linear-gradient(90deg, rgba(148, 163, 184, 0.18) 1px, transparent 1px),
     linear-gradient(0deg, rgba(148, 163, 184, 0.18) 1px, transparent 1px),
     #fbfdff;
   background-size: 36px 36px;
+}
+
+#networkSvg.panning {
+  cursor: grabbing;
 }
 
 .edge {
@@ -815,12 +916,22 @@ select {
 }
 
 .exportPanel {
-  flex-direction: row;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-content: flex-start;
   gap: 10px;
   padding: 12px;
   overflow: auto;
+}
+
+.exportGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.exportGroup .blockLabel {
+  flex-basis: 100%;
+  margin-bottom: 0;
 }
 
 .exportPanel .selectedPanel {
